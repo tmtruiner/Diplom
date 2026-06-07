@@ -1,0 +1,205 @@
+.page {
+  min-height: 100vh;
+  padding: 28px 32px;
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #020617;
+}
+
+.pageSubtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.noticeCard {
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid #bfdbfe;
+  border-radius: 18px;
+  background: #eff6ff;
+}
+
+.noticeTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e3a8a;
+}
+
+.noticeText {
+  margin: 6px 0 0;
+  color: #1e40af;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.exportGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.exportCard {
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.exportHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.iconBox {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 14px;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.exportMeta {
+  min-width: 0;
+}
+
+.exportTitle {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #020617;
+}
+
+.exportDescription {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.exportFooter {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.fileLabel {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.fileName {
+  margin-top: 4px;
+  color: #020617;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.downloadButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  border: none;
+  border-radius: 12px;
+
+  background: #2563eb;
+  color: #ffffff;
+
+  padding: 9px 12px;
+
+  font-size: 13px;
+  font-weight: 800;
+
+  cursor: pointer;
+}
+
+.downloadButton:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.downloadButton:disabled {
+  cursor: not-allowed;
+  background: #cbd5e1;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 4px 10px;
+  border-radius: 999px;
+
+  border: 1px solid transparent;
+
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.badge_blue {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.badge_green {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.badge_slate {
+  background: #f1f5f9;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+@media (max-width: 1200px) {
+  .exportGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .exportFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .footerRight {
+    flex-wrap: wrap;
+  }
+}
