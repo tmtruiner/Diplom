@@ -1,4 +1,52 @@
-__pycache__/
-*.pyc
-.venv/
+# Python
 venv/
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Logs
+*.log
+logs/
+airflow/logs/
+
+# Airflow local runtime
+airflow/plugins/__pycache__/
+airflow/__pycache__/
+
+# Docker volumes / local data
+postgres_data/
+minio_data/
+airflow_postgres_data/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ML artifacts local
+mlruns/
+models/
+*.pkl
+*.joblib
+data/
+
+# Cache
+.cache/
