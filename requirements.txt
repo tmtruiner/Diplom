@@ -1,1 +1,5 @@
 pandas
+mlflow
+boto3
+scikit-learn
+imbalanced-learn
