@@ -309,7 +309,7 @@ function CustomerDetailsPanel({
       <section className={styles.healthSection}>
         <h3 className={styles.healthSectionTitle}>
           <AlertTriangle size={15} />
-          Основные драйверы риска
+          Основные причины риска
         </h3>
 
         <div className={styles.riskDriversList}>
@@ -324,7 +324,7 @@ function CustomerDetailsPanel({
       <section className={styles.healthSection}>
         <h3 className={styles.healthSectionTitle}>
           <Target size={15} />
-          Следующее лучшее действие
+          Оптимальное действие
         </h3>
 
         <div className={styles.nextActionBox}>

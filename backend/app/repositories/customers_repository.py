@@ -24,13 +24,6 @@ class CustomersRepository:
         main_risk_factor: str | None,
         estimated_total_charge: float,
     ) -> int:
-        """
-        Индекс здоровья клиента от 0 до 100.
-
-        Чем выше вероятность оттока, группа риска и оценочные расходы,
-        тем ниже индекс здоровья.
-        """
-
         probability_penalty = churn_probability * 42
 
         if risk_group == "High":

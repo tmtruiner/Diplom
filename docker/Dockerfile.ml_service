@@ -2,8 +2,8 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
+ENV GIT_PYTHON_REFRESH=quiet
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -12,11 +12,11 @@ RUN apt-get update \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY ml_service/requirements.txt ./requirements.txt
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY src ./src
-COPY scripts ./scripts
+COPY ml_service/src ./src
+COPY ml_service/scripts ./scripts
 
-CMD ["python", "scripts/run_weekly_pipeline.py"]
+CMD ["python", "-m", "scripts.run_weekly_pipeline"]

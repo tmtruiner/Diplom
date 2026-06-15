@@ -59,12 +59,6 @@ def build_customer_segments(
     customers_df: pd.DataFrame,
     n_clusters: int = 4,
 ) -> pd.DataFrame:
-    """
-    Формирует интерпретируемые клиентские сегменты на основе правил.
-
-    Параметр n_clusters оставлен для совместимости с pipeline.py,
-    но в rule-based сегментации не используется.
-    """
 
     df = customers_df.copy()
 
