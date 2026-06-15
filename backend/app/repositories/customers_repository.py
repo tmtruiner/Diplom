@@ -424,6 +424,13 @@ class CustomersRepository:
             ORDER BY recommendation_type
         """)
 
+        risk_factors_query = text("""
+            SELECT DISTINCT main_risk_factor
+            FROM predictions
+            WHERE main_risk_factor IS NOT NULL
+            ORDER BY main_risk_factor
+        """)
+
         risk_groups_query = text("""
             SELECT risk_group
             FROM (
@@ -451,6 +458,11 @@ class CustomersRepository:
             for row in self.db.execute(recommendations_query).mappings().all()
         ]
 
+        main_risk_factors = [
+            row["main_risk_factor"]
+            for row in self.db.execute(risk_factors_query).mappings().all()
+        ]
+
         risk_groups = [
             row["risk_group"]
             for row in self.db.execute(risk_groups_query).mappings().all()
@@ -460,4 +472,5 @@ class CustomersRepository:
             "risk_groups": risk_groups,
             "segments": segments,
             "recommendations": recommendations,
+            "main_risk_factors": main_risk_factors,
         }

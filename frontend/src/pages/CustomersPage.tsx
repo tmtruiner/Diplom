@@ -8,6 +8,7 @@ import {
   Target,
   UserRound,
   ChevronDown,
+  Download,
 } from "lucide-react";
 
 import {
@@ -15,12 +16,14 @@ import {
   fetchCustomerFilterOptions,
   fetchCustomers,
 } from "../services/customersApi";
+import { downloadFilteredCustomers } from "../services/exportApi";
 
 
 import type {
   CustomerDetail,
   CustomerFilterOptions,
   CustomerListItem,
+  CustomerPageFilters,
 } from "../types/customers";
 
 import {
@@ -284,7 +287,6 @@ function CustomerDetailsPanel({
             label="Вероятность оттока"
             value={customer.prediction.churn_probability.toFixed(2)}
           />
-
           <DetailRow
             label="Группа риска"
             value={
@@ -293,12 +295,10 @@ function CustomerDetailsPanel({
               </Badge>
             }
           />
-
           <DetailRow
             label="Выручка под риском"
             value={formatMoney(health.revenue_at_risk)}
           />
-
           <DetailRow
             label="Сегмент"
             value={translateSegment(customer.segment.segment_name)}
@@ -343,13 +343,20 @@ function CustomerDetailsPanel({
   );
 }
 
-export function CustomersPage() {
+type CustomersPageProps = {
+  initialFilters?: CustomerPageFilters;
+};
+
+export function CustomersPage({
+  initialFilters = {},
+}: CustomersPageProps) {
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
 
   const [filterOptions, setFilterOptions] = useState<CustomerFilterOptions>({
     risk_groups: [],
     segments: [],
     recommendations: [],
+    main_risk_factors: [],
   });
 
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(
@@ -359,11 +366,20 @@ export function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] =
     useState<CustomerDetail | null>(null);
 
-  const [search, setSearch] = useState("");
-  const [riskGroup, setRiskGroup] = useState("All");
-  const [segment, setSegment] = useState("All");
-  const [recommendation, setRecommendation] = useState("All");
-  const [minProbability, setMinProbability] = useState(0);
+  const [search, setSearch] = useState(initialFilters.search ?? "");
+  const [riskGroup, setRiskGroup] = useState(
+    initialFilters.riskGroup ?? "All"
+  );
+  const [segment, setSegment] = useState(initialFilters.segment ?? "All");
+  const [recommendation, setRecommendation] = useState(
+    initialFilters.recommendation ?? "All"
+  );
+  const [mainRiskFactor, setMainRiskFactor] = useState(
+    initialFilters.mainRiskFactor ?? "All"
+  );
+  const [minProbability, setMinProbability] = useState(
+    initialFilters.minProbability ?? 0
+  );
 
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [error, setError] = useState("");
@@ -371,6 +387,7 @@ export function CustomersPage() {
   const riskGroupOptions = filterOptions.risk_groups ?? [];
   const segmentOptions = filterOptions.segments ?? [];
   const recommendationOptions = filterOptions.recommendations ?? [];
+  const mainRiskFactorOptions = filterOptions.main_risk_factors ?? [];
 
   useEffect(() => {
     fetchCustomerFilterOptions()
@@ -379,6 +396,7 @@ export function CustomersPage() {
           risk_groups: response.risk_groups ?? [],
           segments: response.segments ?? [],
           recommendations: response.recommendations ?? [],
+          main_risk_factors: response.main_risk_factors ?? [],
         });
       })
       .catch((error: Error) => {
@@ -388,6 +406,7 @@ export function CustomersPage() {
           risk_groups: [],
           segments: [],
           recommendations: [],
+          main_risk_factors: [],
         });
       });
   }, []);
@@ -401,6 +420,7 @@ export function CustomersPage() {
       riskGroup,
       segment,
       recommendation,
+      mainRiskFactor,
       minProbability,
     })
       .then((response: { items: CustomerListItem[] }) => {
@@ -424,7 +444,14 @@ export function CustomersPage() {
       .finally(() => {
         setIsLoadingList(false);
       });
-  }, [search, riskGroup, segment, recommendation, minProbability]);
+  }, [
+    search,
+    riskGroup,
+    segment,
+    recommendation,
+    mainRiskFactor,
+    minProbability,
+  ]);
 
   useEffect(() => {
     if (!selectedCustomerId) {
@@ -450,6 +477,24 @@ export function CustomersPage() {
             Анализ скоринговых клиентов, риска оттока, сегментов и рекомендаций.
           </p>
         </div>
+
+        <button
+          type="button"
+          className={styles.primaryButton}
+          onClick={() =>
+            downloadFilteredCustomers({
+              search,
+              riskGroup,
+              segment,
+              recommendation,
+              mainRiskFactor,
+              minProbability,
+            })
+          }
+        >
+          <Download size={17} />
+          Выгрузить текущую выборку
+        </button>
       </header>
 
       <section className={styles.filtersCard}>
@@ -511,6 +556,21 @@ export function CustomersPage() {
                 ...recommendationOptions.map((item) => ({
                   value: item,
                   label: translateRecommendation(item),
+                })),
+              ]}
+            />
+          </label>
+
+          <label className={styles.field}>
+            Фактор риска
+            <CustomSelect
+              value={mainRiskFactor}
+              onChange={setMainRiskFactor}
+              options={[
+                { value: "All", label: "Все" },
+                ...mainRiskFactorOptions.map((item) => ({
+                  value: item,
+                  label: translateRiskFactor(item),
                 })),
               ]}
             />

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -36,6 +36,28 @@ def export_customers(db: Session = Depends(get_db)):
     repository = ExportRepository(db)
     content = repository.export_customers_csv()
     return csv_response(content, "customers_export.csv")
+
+
+@router.get("/customers-filtered.csv")
+def export_filtered_customers(
+    search: str | None = Query(default=None),
+    risk_group: str | None = Query(default=None),
+    segment: str | None = Query(default=None),
+    recommendation: str | None = Query(default=None),
+    main_risk_factor: str | None = Query(default=None),
+    min_probability: float | None = Query(default=None, ge=0, le=1),
+    db: Session = Depends(get_db),
+):
+    repository = ExportRepository(db)
+    content = repository.export_filtered_customers_csv(
+        search=search,
+        risk_group=risk_group,
+        segment=segment,
+        recommendation=recommendation,
+        main_risk_factor=main_risk_factor,
+        min_probability=min_probability,
+    )
+    return csv_response(content, "customers_filtered_export.csv")
 
 
 @router.get("/high-risk-customers.csv")

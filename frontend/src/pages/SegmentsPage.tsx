@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -11,6 +12,7 @@ import {
 
 
 import { fetchSegments } from "../services/segmentsApi";
+import type { CustomerPageFilters } from "../types/customers";
 import type { SegmentItem } from "../types/segments";
 
 import {
@@ -55,8 +57,10 @@ function Badge({
 
 function SegmentProfilePanel({
   segment,
+  onOpenCustomers,
 }: {
   segment: SegmentItem | null;
+  onOpenCustomers: (filters: CustomerPageFilters) => void;
 }) {
   if (!segment) {
     return (
@@ -118,11 +122,29 @@ function SegmentProfilePanel({
           {translateRecommendation(segment.main_recommendation)}
         </div>
       </section>
+
+      <div className={styles.panelActions}>
+        <button
+          type="button"
+          className={styles.secondaryActionButton}
+          onClick={() =>
+            onOpenCustomers({ segment: segment.segment_name })
+          }
+        >
+          Показать клиентов сегмента
+        </button>
+      </div>
     </aside>
   );
 }
 
-export function SegmentsPage() {
+type SegmentsPageProps = {
+  onOpenCustomers: (filters: CustomerPageFilters) => void;
+};
+
+export function SegmentsPage({
+  onOpenCustomers,
+}: SegmentsPageProps) {
   const [segments, setSegments] = useState<SegmentItem[]>([]);
   const [selectedSegmentName, setSelectedSegmentName] = useState<string | null>(
     null
@@ -157,11 +179,13 @@ export function SegmentsPage() {
 
   const avgRiskChartData = segments.map((segment) => ({
     segment: translateSegment(segment.segment_name),
+    originalSegment: segment.segment_name,
     risk: segment.average_churn_probability,
   }));
 
   const highRiskShareChartData = segments.map((segment) => ({
     segment: translateSegment(segment.segment_name),
+    originalSegment: segment.segment_name,
     share: Math.round(segment.high_risk_share * 100),
   }));
 
@@ -205,7 +229,20 @@ export function SegmentsPage() {
                   tick={{ fontSize: 12 }}
                 />
                 <Tooltip formatter={(value) => Number(value).toFixed(2)} />
-                <Bar dataKey="risk" fill="#2563eb" radius={[0, 8, 8, 0]} />
+                <Bar dataKey="risk" radius={[0, 8, 8, 0]}>
+                  {avgRiskChartData.map((entry) => (
+                    <Cell
+                      key={entry.originalSegment}
+                      fill="#2563eb"
+                      cursor="pointer"
+                      onClick={() =>
+                        onOpenCustomers({
+                          segment: entry.originalSegment,
+                        })
+                      }
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -233,7 +270,21 @@ export function SegmentsPage() {
                 />
                 <YAxis unit="%" />
                 <Tooltip formatter={(value) => `${value}%`} />
-                <Bar dataKey="share" fill="#ef4444" radius={[8, 8, 0, 0]} />
+                <Bar dataKey="share" radius={[8, 8, 0, 0]}>
+                  {highRiskShareChartData.map((entry) => (
+                    <Cell
+                      key={entry.originalSegment}
+                      fill="#ef4444"
+                      cursor="pointer"
+                      onClick={() =>
+                        onOpenCustomers({
+                          segment: entry.originalSegment,
+                          riskGroup: "High",
+                        })
+                      }
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -279,7 +330,18 @@ export function SegmentsPage() {
                       }
                     >
                       <td className={styles.segmentNameCell}>
-                        <div>{translateSegment(segment.segment_name)}</div>
+                        <button
+                          type="button"
+                          className={styles.linkLikeButton}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenCustomers({
+                              segment: segment.segment_name,
+                            });
+                          }}
+                        >
+                          {translateSegment(segment.segment_name)}
+                        </button>
                       </td>
 
                       <td>{formatNumber(segment.clients_count)}</td>
@@ -311,7 +373,10 @@ export function SegmentsPage() {
           </div>
         </section>
 
-        <SegmentProfilePanel segment={selectedSegment} />
+        <SegmentProfilePanel
+          segment={selectedSegment}
+          onOpenCustomers={onOpenCustomers}
+        />
       </section>
     </div>
   );

@@ -46,6 +46,15 @@
   cursor: pointer;
 }
 
+.primaryButton:hover {
+  background: #1d4ed8;
+}
+
+.primaryButton:focus-visible {
+  outline: 3px solid #bfdbfe;
+  outline-offset: 3px;
+}
+
 .filtersCard,
 .tableCard,
 .detailsPanel {

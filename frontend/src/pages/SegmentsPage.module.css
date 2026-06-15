@@ -196,6 +196,28 @@
   font-weight: 800;
 }
 
+.linkLikeButton {
+  border: none;
+  background: transparent;
+  padding: 0;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.linkLikeButton:hover {
+  color: #1e40af;
+  text-decoration: underline;
+}
+
+.linkLikeButton:focus-visible,
+.secondaryActionButton:focus-visible {
+  outline: 3px solid #bfdbfe;
+  outline-offset: 3px;
+}
+
 .detailsPanel {
   padding: 20px;
   position: sticky;
@@ -368,4 +390,27 @@
   .header {
     flex-direction: column;
   }
+}
+
+.panelActions {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.secondaryActionButton {
+  width: 100%;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.secondaryActionButton:hover {
+  background: #dbeafe;
+  color: #1e40af;
 }

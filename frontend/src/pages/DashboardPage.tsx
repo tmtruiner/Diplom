@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import { fetchDashboardSummary } from "../services/dashboardApi";
+import type { CustomerPageFilters } from "../types/customers";
 import type { DashboardSummary } from "../types/dashboard";
 
 import {
@@ -44,15 +45,22 @@ function KpiCard({
   helper,
   icon: Icon,
   tone,
+  onClick,
 }: {
   title: string;
   value: string;
   helper?: string;
   icon: React.ElementType;
   tone: "blue" | "red" | "green" | "amber" | "violet";
+  onClick?: () => void;
 }) {
   return (
-    <div className={styles.kpiCard}>
+    <button
+      type="button"
+      className={`${styles.kpiCard} ${onClick ? styles.clickableCard : ""}`}
+      onClick={onClick}
+      disabled={!onClick}
+    >
       <div>
         <div className={styles.kpiTitle}>{title}</div>
         <div className={styles.kpiValue}>{value}</div>
@@ -62,7 +70,7 @@ function KpiCard({
       <div className={`${styles.kpiIcon} ${styles[tone]}`}>
         <Icon size={22} />
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -101,7 +109,13 @@ function Badge({
   );
 }
 
-export function DashboardPage() {
+type DashboardPageProps = {
+  onOpenCustomers: (filters?: CustomerPageFilters) => void;
+};
+
+export function DashboardPage({
+  onOpenCustomers,
+}: DashboardPageProps) {
   const [data, setData] = useState<DashboardSummary | null>(null);
   const [status, setStatus] = useState<"loading" | "success" | "error">(
     "loading"
@@ -140,6 +154,7 @@ export function DashboardPage() {
 
   const riskDistribution = data.risk_distribution.map((item) => ({
     name: translateRiskGroup(item.risk_group),
+    originalRiskGroup: item.risk_group,
     value: item.customers_count,
     color: riskColors[item.risk_group],
   }));
@@ -176,6 +191,7 @@ export function DashboardPage() {
           helper="Последний скоринговый набор данных"
           icon={Users}
           tone="blue"
+          onClick={() => onOpenCustomers()}
         />
 
         <KpiCard
@@ -184,6 +200,7 @@ export function DashboardPage() {
           helper="Клиенты выше порога высокого риска"
           icon={ShieldAlert}
           tone="red"
+          onClick={() => onOpenCustomers({ riskGroup: "High" })}
         />
 
         <KpiCard
@@ -226,7 +243,16 @@ export function DashboardPage() {
                 <Tooltip />
                 <Bar dataKey="value" radius={[0, 8, 8, 0]}>
                   {riskDistribution.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
+                    <Cell
+                      key={entry.name}
+                      fill={entry.color}
+                      cursor="pointer"
+                      onClick={() =>
+                        onOpenCustomers({
+                          riskGroup: entry.originalRiskGroup,
+                        })
+                      }
+                    />
                   ))}
                 </Bar>
               </BarChart>
@@ -249,7 +275,16 @@ export function DashboardPage() {
           <div className={styles.list}>
             {retentionPriorities.length > 0 ? (
               retentionPriorities.map((item, index) => (
-                <div key={item.originalType} className={styles.riskFactorItem}>
+                <button
+                  type="button"
+                  key={item.originalType}
+                  className={`${styles.riskFactorItem} ${styles.clickableListItem}`}
+                  onClick={() =>
+                    onOpenCustomers({
+                      recommendation: item.originalType,
+                    })
+                  }
+                >
                   <div className={styles.listLeft}>
                     <div className={styles.rank}>{index + 1}</div>
 
@@ -264,7 +299,7 @@ export function DashboardPage() {
                   <Badge tone={index === 0 ? "red" : "amber"}>
                     Приоритет
                   </Badge>
-                </div>
+                </button>
               ))
             ) : (
               <div className={styles.emptyState}>
@@ -296,7 +331,20 @@ export function DashboardPage() {
                   tick={{ fontSize: 12 }}
                 />
                 <Tooltip />
-                <Bar dataKey="count" fill="#7c3aed" radius={[0, 8, 8, 0]} />
+                <Bar dataKey="count" radius={[0, 8, 8, 0]}>
+                  {recommendationsSummary.map((entry) => (
+                    <Cell
+                      key={entry.originalType}
+                      fill="#7c3aed"
+                      cursor="pointer"
+                      onClick={() =>
+                        onOpenCustomers({
+                          recommendation: entry.originalType,
+                        })
+                      }
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -312,7 +360,16 @@ export function DashboardPage() {
 
           <div className={styles.list}>
             {data.top_risk_factors.map((item, index) => (
-              <div key={item.factor} className={styles.riskFactorItem}>
+              <button
+                type="button"
+                key={item.factor}
+                className={`${styles.riskFactorItem} ${styles.clickableListItem}`}
+                onClick={() =>
+                  onOpenCustomers({
+                    mainRiskFactor: item.factor,
+                  })
+                }
+              >
                 <div className={styles.listLeft}>
                   <div className={styles.rank}>{index + 1}</div>
 
@@ -332,7 +389,7 @@ export function DashboardPage() {
                     ? "Высокое влияние"
                     : "Среднее влияние"}
                 </Badge>
-              </div>
+              </button>
             ))}
           </div>
         </section>

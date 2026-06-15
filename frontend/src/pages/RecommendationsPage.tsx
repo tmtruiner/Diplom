@@ -3,6 +3,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -10,6 +11,7 @@ import {
 } from "recharts";
 
 import { fetchRecommendations } from "../services/recommendationsApi";
+import type { CustomerPageFilters } from "../types/customers";
 import type { RecommendationItem } from "../types/recommendations";
 
 import {
@@ -62,8 +64,10 @@ function Badge({
 
 function RecommendationProfilePanel({
   recommendation,
+  onOpenCustomers,
 }: {
   recommendation: RecommendationItem | null;
+  onOpenCustomers: (filters: CustomerPageFilters) => void;
 }) {
   if (!recommendation) {
     return (
@@ -136,11 +140,31 @@ function RecommendationProfilePanel({
             {translateRecommendationReason(recommendation.recommendation_reason)}
         </div>
       </section>
+
+      <div className={styles.panelActions}>
+        <button
+          type="button"
+          className={styles.secondaryActionButton}
+          onClick={() =>
+            onOpenCustomers({
+              recommendation: recommendation.recommendation_type,
+            })
+          }
+        >
+          Показать клиентов с рекомендацией
+        </button>
+      </div>
     </aside>
   );
 }
 
-export function RecommendationsPage() {
+type RecommendationsPageProps = {
+  onOpenCustomers: (filters: CustomerPageFilters) => void;
+};
+
+export function RecommendationsPage({
+  onOpenCustomers,
+}: RecommendationsPageProps) {
   const [recommendations, setRecommendations] = useState<RecommendationItem[]>(
     []
   );
@@ -229,11 +253,20 @@ export function RecommendationsPage() {
                   tick={{ fontSize: 12 }}
                 />
                 <Tooltip />
-                <Bar
-                  dataKey="customers"
-                  fill="#7c3aed"
-                  radius={[0, 8, 8, 0]}
-                />
+                <Bar dataKey="customers" radius={[0, 8, 8, 0]}>
+                  {chartData.map((entry) => (
+                    <Cell
+                      key={entry.originalType}
+                      fill="#7c3aed"
+                      cursor="pointer"
+                      onClick={() =>
+                        onOpenCustomers({
+                          recommendation: entry.originalType,
+                        })
+                      }
+                    />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -247,9 +280,15 @@ export function RecommendationsPage() {
 
           <div className={styles.priorityList}>
             {recommendations.slice(0, 5).map((item, index) => (
-              <div
+              <button
+                type="button"
                 key={item.recommendation_type}
-                className={styles.priorityItem}
+                className={`${styles.priorityItem} ${styles.clickableListItem}`}
+                onClick={() =>
+                  onOpenCustomers({
+                    recommendation: item.recommendation_type,
+                  })
+                }
               >
                 <div className={styles.priorityLeft}>
                   <div className={styles.rank}>{index + 1}</div>
@@ -268,7 +307,7 @@ export function RecommendationsPage() {
                 <Badge tone={getPriorityTone(item.priority)}>
                   {translatePriority(item.priority)}
                 </Badge>
-              </div>
+              </button>
             ))}
           </div>
         </section>
@@ -314,9 +353,18 @@ export function RecommendationsPage() {
                       }
                     >
                       <td className={styles.recommendationNameCell}>
-                        <div>
+                        <button
+                          type="button"
+                          className={styles.linkLikeButton}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onOpenCustomers({
+                              recommendation: item.recommendation_type,
+                            });
+                          }}
+                        >
                           {translateRecommendation(item.recommendation_type)}
-                        </div>
+                        </button>
                       </td>
 
                       <td>{formatNumber(item.customers_count)}</td>
@@ -354,7 +402,10 @@ export function RecommendationsPage() {
           </div>
         </section>
 
-        <RecommendationProfilePanel recommendation={selectedRecommendation} />
+        <RecommendationProfilePanel
+          recommendation={selectedRecommendation}
+          onOpenCustomers={onOpenCustomers}
+        />
       </section>
     </div>
   );

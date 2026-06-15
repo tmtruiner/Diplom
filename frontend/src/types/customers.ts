@@ -14,12 +14,20 @@ export type CustomerListItem = {
   revenue_at_risk?: number;
 };
 
-
+export type CustomerPageFilters = {
+  search?: string;
+  riskGroup?: string;
+  segment?: string;
+  recommendation?: string;
+  mainRiskFactor?: string;
+  minProbability?: number;
+};
 
 export type CustomerFilterOptions = {
   risk_groups: string[];
   segments: string[];
   recommendations: string[];
+  main_risk_factors: string[];
 };
 
 export type CustomersResponse = {

@@ -92,5 +92,6 @@ export async function fetchCustomerFilterOptions(): Promise<CustomerFilterOption
     risk_groups: data.risk_groups ?? [],
     segments: data.segments ?? [],
     recommendations: data.recommendations ?? [],
+    main_risk_factors: data.main_risk_factors ?? [],
   };
 }
