@@ -1,15 +1,20 @@
 import { useEffect, useState } from "react";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
   Cell,
+  ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  ZAxis,
 } from "recharts";
-
+import {
+  AlertTriangle,
+  ArrowRight,
+} from "lucide-react";
 
 import { fetchSegments } from "../services/segmentsApi";
 import type { CustomerPageFilters } from "../types/customers";
@@ -35,10 +40,72 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("ru-RU").format(value);
 }
 
+function getNormalizedPercentAxisMax(values: number[]) {
+  const maxValue = Math.max(0, ...values);
+  const roundedMax = Math.ceil(maxValue / 5) * 5;
+
+  return Math.min(100, Math.max(20, roundedMax + 5));
+}
+
+function getNormalizedCountAxisDomain(values: number[]): [number, number] {
+  if (values.length === 0) {
+    return [0, 100];
+  }
+
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const spread = Math.max(maxValue - minValue, maxValue * 0.1, 100);
+  const padding = spread * 0.15;
+  const step = spread >= 1000 ? 500 : 100;
+
+  const minDomain = Math.max(0, Math.floor((minValue - padding) / step) * step);
+  const maxDomain = Math.ceil((maxValue + padding) / step) * step;
+
+  return [minDomain, maxDomain];
+}
+
 function getRiskToneByProbability(probability: number) {
   if (probability >= 0.7) return "red";
   if (probability >= 0.35) return "amber";
   return "green";
+}
+
+function getHighRiskShareTone(share: number) {
+  if (share >= 0.5) return "red";
+  if (share >= 0.15) return "amber";
+  return "green";
+}
+
+function getAttentionLevel(segment: SegmentItem) {
+  if (
+    segment.average_churn_probability >= 0.7 ||
+    segment.high_risk_share >= 0.5 ||
+    segment.high_risk_customers >= 10
+  ) {
+    return {
+      label: "Критический приоритет",
+      tone: "red" as const,
+      color: "#ef4444",
+    };
+  }
+
+  if (
+    segment.average_churn_probability >= 0.35 ||
+    segment.high_risk_share >= 0.15 ||
+    segment.high_risk_customers >= 3
+  ) {
+    return {
+      label: "Требует внимания",
+      tone: "amber" as const,
+      color: "#f59e0b",
+    };
+  }
+
+  return {
+    label: "Стабильный сегмент",
+    tone: "green" as const,
+    color: "#10b981",
+  };
 }
 
 function Badge({
@@ -55,11 +122,51 @@ function Badge({
   );
 }
 
+type PriorityMapPoint = {
+  segment_name: string;
+  display_name: string;
+  clients: number;
+  highRiskShare: number;
+  highRiskCustomers: number;
+  averageRisk: number;
+  charge: number;
+  color: string;
+};
+
+function PriorityMapTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: PriorityMapPoint }>;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const point = payload[0].payload;
+
+  return (
+    <div className={styles.chartTooltip}>
+      <strong>{point.display_name}</strong>
+      <span>{formatNumber(point.clients)} клиентов</span>
+      <span>
+        Высокий риск: {formatNumber(point.highRiskCustomers)} /{" "}
+        {point.highRiskShare}%
+      </span>
+      <span>Средняя вероятность ухода: {point.averageRisk.toFixed(2)}</span>
+      <span>Средние расходы: {formatMoney(point.charge)}</span>
+    </div>
+  );
+}
+
 function SegmentProfilePanel({
   segment,
+  portfolioAverageRisk,
   onOpenCustomers,
 }: {
   segment: SegmentItem | null;
+  portfolioAverageRisk: number;
   onOpenCustomers: (filters: CustomerPageFilters) => void;
 }) {
   if (!segment) {
@@ -70,54 +177,76 @@ function SegmentProfilePanel({
     );
   }
 
+  const attention = getAttentionLevel(segment);
+  const riskDifference =
+    segment.average_churn_probability - portfolioAverageRisk;
+  const riskDifferencePercent = Math.round(Math.abs(riskDifference) * 100);
+
+  let comparisonText = "Риск соответствует среднему уровню по клиентской базе.";
+
+  if (riskDifferencePercent > 0) {
+    comparisonText =
+      riskDifference > 0
+        ? `Вероятность ухода на ${riskDifferencePercent} п.п. выше среднего по клиентской базе.`
+        : `Вероятность ухода на ${riskDifferencePercent} п.п. ниже среднего по клиентской базе.`;
+  }
+
   return (
     <aside className={styles.detailsPanel}>
       <div className={styles.detailsHeader}>
         <div>
-          <div className={styles.detailsLabel}>Выбранный сегмент</div>
+          <div className={styles.detailsLabel}>Профиль сегмента</div>
           <h2 className={styles.detailsTitle}>
             {translateSegment(segment.segment_name)}
           </h2>
         </div>
       </div>
 
-      <section className={styles.detailsSection}>
-        <h3 className={styles.detailsSectionTitle}>Метрики сегмента</h3>
+      <Badge tone={attention.tone}>{attention.label}</Badge>
 
-        <div className={styles.detailBox}>
-          <div className={styles.detailRow}>
-            <span>Количество клиентов</span>
+      <section className={styles.detailsSection}>
+        <h3 className={styles.detailsSectionTitle}>Почему она важна</h3>
+        <div className={styles.insightBox}>
+          <strong>{comparisonText}</strong>
+          <span>
+            {segment.high_risk_customers > 0
+              ? `${formatNumber(segment.high_risk_customers)} клиентов уже находятся в группе высокого риска.`
+              : "Клиентов высокого риска в этом сегменте сейчас нет."}
+          </span>
+        </div>
+      </section>
+
+      <section className={styles.detailsSection}>
+        <h3 className={styles.detailsSectionTitle}>Масштаб сегмента</h3>
+        <div className={styles.compactMetrics}>
+          <div>
+            <span>Клиенты</span>
             <strong>{formatNumber(segment.clients_count)}</strong>
           </div>
-
-          <div className={styles.detailRow}>
-            <span>Средняя вероятность оттока</span>
-            <strong>{segment.average_churn_probability.toFixed(2)}</strong>
-          </div>
-
-          <div className={styles.detailRow}>
-            <span>Доля клиентов высокого риска</span>
-            <strong>{Math.round(segment.high_risk_share * 100)}%</strong>
-          </div>
-
-          <div className={styles.detailRow}>
-            <span>Средние оценочные расходы</span>
+          <div>
+            <span>Высокий риск</span>
             <strong>
-              {formatMoney(segment.average_estimated_total_charge)}
+              {formatNumber(segment.high_risk_customers)} /{" "}
+              {Math.round(segment.high_risk_share * 100)}%
             </strong>
           </div>
+          <div>
+            <span>Средние расходы</span>
+            <strong>{formatMoney(segment.average_estimated_total_charge)}</strong>
+          </div>
         </div>
       </section>
 
       <section className={styles.detailsSection}>
-        <h3 className={styles.detailsSectionTitle}>Главный фактор риска</h3>
-        <div className={styles.infoBox}>
-          {translateRiskFactor(segment.main_risk_factor)}
+        <h3 className={styles.detailsSectionTitle}>Основная проблема</h3>
+        <div className={styles.riskFactorBox}>
+          <AlertTriangle size={17} />
+          <span>{translateRiskFactor(segment.main_risk_factor)}</span>
         </div>
       </section>
 
       <section className={styles.detailsSection}>
-        <h3 className={styles.detailsSectionTitle}>Рекомендуемое действие</h3>
+        <h3 className={styles.detailsSectionTitle}>Что рекомендуется сделать</h3>
         <div className={styles.recommendationBox}>
           {translateRecommendation(segment.main_recommendation)}
         </div>
@@ -127,11 +256,10 @@ function SegmentProfilePanel({
         <button
           type="button"
           className={styles.secondaryActionButton}
-          onClick={() =>
-            onOpenCustomers({ segment: segment.segment_name })
-          }
+          onClick={() => onOpenCustomers({ segment: segment.segment_name })}
         >
-          Показать клиентов сегмента
+          Показать клиентов
+          <ArrowRight size={16} />
         </button>
       </div>
     </aside>
@@ -142,14 +270,11 @@ type SegmentsPageProps = {
   onOpenCustomers: (filters: CustomerPageFilters) => void;
 };
 
-export function SegmentsPage({
-  onOpenCustomers,
-}: SegmentsPageProps) {
+export function SegmentsPage({ onOpenCustomers }: SegmentsPageProps) {
   const [segments, setSegments] = useState<SegmentItem[]>([]);
   const [selectedSegmentName, setSelectedSegmentName] = useState<string | null>(
     null
   );
-
   const [isLoadingSegments, setIsLoadingSegments] = useState(true);
   const [error, setError] = useState("");
 
@@ -160,10 +285,6 @@ export function SegmentsPage({
     fetchSegments()
       .then((response) => {
         setSegments(response.items);
-
-        if (response.items.length > 0) {
-          setSelectedSegmentName(response.items[0].segment_name);
-        }
       })
       .catch((error) => {
         setError(error.message);
@@ -175,27 +296,49 @@ export function SegmentsPage({
 
   const selectedSegment =
     segments.find((segment) => segment.segment_name === selectedSegmentName) ??
+    segments[0] ??
     null;
+  const effectiveSelectedSegmentName = selectedSegment?.segment_name ?? null;
 
-  const avgRiskChartData = segments.map((segment) => ({
-    segment: translateSegment(segment.segment_name),
-    originalSegment: segment.segment_name,
-    risk: segment.average_churn_probability,
-  }));
+  const totalCustomers = segments.reduce(
+    (sum, segment) => sum + segment.clients_count,
+    0
+  );
+  const portfolioAverageRisk =
+    totalCustomers > 0
+      ? segments.reduce(
+          (sum, segment) =>
+            sum +
+            segment.average_churn_probability * segment.clients_count,
+          0
+        ) / totalCustomers
+      : 0;
 
-  const highRiskShareChartData = segments.map((segment) => ({
-    segment: translateSegment(segment.segment_name),
-    originalSegment: segment.segment_name,
-    share: Math.round(segment.high_risk_share * 100),
+  const priorityMapData: PriorityMapPoint[] = segments.map((segment) => ({
+    segment_name: segment.segment_name,
+    display_name: translateSegment(segment.segment_name),
+    clients: segment.clients_count,
+    highRiskShare: Math.round(segment.high_risk_share * 100),
+    highRiskCustomers: segment.high_risk_customers,
+    averageRisk: segment.average_churn_probability,
+    charge: segment.average_estimated_total_charge,
+    color: getAttentionLevel(segment).color,
   }));
+  const highRiskShareAxisMax = getNormalizedPercentAxisMax(
+    priorityMapData.map((point) => point.highRiskShare)
+  );
+  const clientsAxisDomain = getNormalizedCountAxisDomain(
+    priorityMapData.map((point) => point.clients)
+  );
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.pageTitle}>Сегменты</h1>
+          <h1 className={styles.pageTitle}>Сегменты клиентов</h1>
           <p className={styles.pageSubtitle}>
-            Сравнение групп клиентов, уровня риска и логики удержания.
+            Сравнение масштаба, риска и рекомендуемых действий для разных групп
+            клиентов.
           </p>
         </div>
       </header>
@@ -206,87 +349,88 @@ export function SegmentsPage({
         </div>
       )}
 
-      <section className={styles.chartsGrid}>
+      <section className={styles.mapSection}>
         <section className={styles.card}>
           <div className={styles.cardHeader}>
-            <h2>Средняя вероятность оттока по сегментам</h2>
-            <p>Показывает, какие группы клиентов чаще склонны к оттоку.</p>
+            <h2>Карта сегментов</h2>
+            <p>
+              Чем выше точка, тем больше доля клиентов высокого риска; чем
+              правее, тем больше клиентов в сегменте. Шкала риска подстраивается
+              под текущую выборку.
+            </p>
           </div>
 
-          <div className={styles.chart}>
+          <div className={styles.priorityMap}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={avgRiskChartData}
-                layout="vertical"
-                margin={{ left: 110, right: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" domain={[0, 1]} />
-                <YAxis
-                  dataKey="segment"
-                  type="category"
-                  width={240}
-                  tick={{ fontSize: 12 }}
-                />
-                <Tooltip formatter={(value) => Number(value).toFixed(2)} />
-                <Bar dataKey="risk" radius={[0, 8, 8, 0]}>
-                  {avgRiskChartData.map((entry) => (
-                    <Cell
-                      key={entry.originalSegment}
-                      fill="#2563eb"
-                      cursor="pointer"
-                      onClick={() =>
-                        onOpenCustomers({
-                          segment: entry.originalSegment,
-                        })
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        <section className={styles.card}>
-          <div className={styles.cardHeader}>
-            <h2>Доля клиентов высокого риска по сегментам</h2>
-            <p>Показывает концентрацию high-risk клиентов внутри группы.</p>
-          </div>
-
-          <div className={styles.chart}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={highRiskShareChartData}
-                margin={{ left: 10, right: 20, bottom: 80 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <ScatterChart margin={{ top: 16, right: 24, bottom: 16, left: 8 }}>
+                <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
-                  dataKey="segment"
-                  angle={-18}
-                  textAnchor="end"
-                  height={95}
+                  type="number"
+                  dataKey="clients"
+                  name="Клиенты"
+                  domain={clientsAxisDomain}
+                  allowDataOverflow={false}
                   tick={{ fontSize: 12 }}
                 />
-                <YAxis unit="%" />
-                <Tooltip formatter={(value) => `${value}%`} />
-                <Bar dataKey="share" radius={[8, 8, 0, 0]}>
-                  {highRiskShareChartData.map((entry) => (
+                <YAxis
+                  type="number"
+                  dataKey="highRiskShare"
+                  name="Доля высокого риска"
+                  unit="%"
+                  domain={[0, highRiskShareAxisMax]}
+                  tick={{ fontSize: 12 }}
+                />
+                <ZAxis
+                  type="number"
+                  dataKey="charge"
+                  range={[100, 550]}
+                  name="Средние расходы"
+                />
+                <ReferenceLine y={15} stroke="#f59e0b" strokeDasharray="5 5" />
+                {highRiskShareAxisMax >= 50 && (
+                  <ReferenceLine
+                    y={50}
+                    stroke="#ef4444"
+                    strokeDasharray="5 5"
+                  />
+                )}
+                <Tooltip content={<PriorityMapTooltip />} />
+                <Scatter data={priorityMapData}>
+                  {priorityMapData.map((entry) => (
                     <Cell
-                      key={entry.originalSegment}
-                      fill="#ef4444"
+                      key={entry.segment_name}
+                      fill={entry.color}
                       cursor="pointer"
+                      stroke={
+                        entry.segment_name === effectiveSelectedSegmentName
+                          ? "#0f172a"
+                          : "#ffffff"
+                      }
+                      strokeWidth={
+                        entry.segment_name === effectiveSelectedSegmentName
+                          ? 3
+                          : 1
+                      }
                       onClick={() =>
-                        onOpenCustomers({
-                          segment: entry.originalSegment,
-                          riskGroup: "High",
-                        })
+                        setSelectedSegmentName(entry.segment_name)
                       }
                     />
                   ))}
-                </Bar>
-              </BarChart>
+                </Scatter>
+              </ScatterChart>
             </ResponsiveContainer>
+          </div>
+
+          <div className={styles.chartLegend}>
+            <span>
+              <i className={styles.legendRed} /> Критический приоритет
+            </span>
+            <span>
+              <i className={styles.legendAmber} /> Требует внимания
+            </span>
+            <span>
+              <i className={styles.legendGreen} /> Стабильный сегмент
+            </span>
           </div>
         </section>
       </section>
@@ -299,7 +443,7 @@ export function SegmentsPage({
               <p>
                 {isLoadingSegments
                   ? "Загрузка сегментов..."
-                  : `Загружено сегментов: ${segments.length}`}
+                  : `Показано сегментов: ${segments.length}`}
               </p>
             </div>
           </div>
@@ -310,8 +454,9 @@ export function SegmentsPage({
                 <tr>
                   <th>Сегмент</th>
                   <th>Клиенты</th>
-                  <th>Средний риск</th>
-                  <th>Доля высокого риска</th>
+                  <th>Высокий риск</th>
+                  <th>Средняя вероятность</th>
+                  <th>Основная проблема</th>
                   <th>Действие</th>
                 </tr>
               </thead>
@@ -319,7 +464,7 @@ export function SegmentsPage({
               <tbody>
                 {segments.map((segment) => {
                   const isSelected =
-                    segment.segment_name === selectedSegmentName;
+                    segment.segment_name === effectiveSelectedSegmentName;
 
                   return (
                     <tr
@@ -335,17 +480,19 @@ export function SegmentsPage({
                           className={styles.linkLikeButton}
                           onClick={(event) => {
                             event.stopPropagation();
-                            onOpenCustomers({
-                              segment: segment.segment_name,
-                            });
+                            onOpenCustomers({ segment: segment.segment_name });
                           }}
                         >
                           {translateSegment(segment.segment_name)}
                         </button>
                       </td>
-
                       <td>{formatNumber(segment.clients_count)}</td>
-
+                      <td>
+                        <Badge tone={getHighRiskShareTone(segment.high_risk_share)}>
+                          {formatNumber(segment.high_risk_customers)} /{" "}
+                          {Math.round(segment.high_risk_share * 100)}%
+                        </Badge>
+                      </td>
                       <td>
                         <Badge
                           tone={getRiskToneByProbability(
@@ -355,9 +502,7 @@ export function SegmentsPage({
                           {segment.average_churn_probability.toFixed(2)}
                         </Badge>
                       </td>
-
-                      <td>{Math.round(segment.high_risk_share * 100)}%</td>
-
+                      <td>{translateRiskFactor(segment.main_risk_factor)}</td>
                       <td>
                         {translateRecommendation(segment.main_recommendation)}
                       </td>
@@ -375,6 +520,7 @@ export function SegmentsPage({
 
         <SegmentProfilePanel
           segment={selectedSegment}
+          portfolioAverageRisk={portfolioAverageRisk}
           onOpenCustomers={onOpenCustomers}
         />
       </section>

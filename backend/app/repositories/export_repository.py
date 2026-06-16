@@ -71,6 +71,8 @@ RECOMMENDATION_REASON_TRANSLATIONS = {
         "У клиента не подключена голосовая почта; предложите услугу как действие по удержанию.",
     "Customer has low churn probability; no retention action is required.":
         "У клиента низкая вероятность оттока; действие по удержанию не требуется.",
+    "Customer has elevated churn probability; offer a retention discount.":
+        "У клиента повышенная вероятность оттока; предложите скидку на удержание.",
 }
 
 
@@ -213,7 +215,35 @@ class ExportRepository:
                 FROM customer_segments s
                 LEFT JOIN customer_recommendations r
                     ON s.customer_id = r.customer_id
+                JOIN predictions p
+                    ON s.customer_id = p.customer_id
+                WHERE r.recommendation_type != 'No Action'
                 GROUP BY s.segment_name, r.recommendation_type
+            ),
+            risk_factor_stats AS (
+                SELECT
+                    s.segment_name,
+                    p.main_risk_factor,
+                    COUNT(*) AS factor_count,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY s.segment_name
+                        ORDER BY
+                            COUNT(*) DESC,
+                            CASE p.main_risk_factor
+                                WHEN 'Customer service calls >= 3' THEN 1
+                                WHEN 'High day charge' THEN 2
+                                WHEN 'International plan' THEN 3
+                                WHEN 'No voice mail plan' THEN 4
+                                WHEN 'Stable customer profile' THEN 5
+                                ELSE 6
+                            END
+                    ) AS row_number
+                FROM customer_segments s
+                JOIN predictions p
+                    ON s.customer_id = p.customer_id
+                WHERE p.main_risk_factor IS NOT NULL
+                  AND p.main_risk_factor != 'Stable customer profile'
+                GROUP BY s.segment_name, p.main_risk_factor
             )
             SELECT
                 ss.segment_name,
@@ -226,11 +256,33 @@ class ExportRepository:
                     ELSE 0
                 END AS high_risk_share,
                 ss.average_estimated_total_charge,
-                rs.recommendation_type AS main_recommendation
+                COALESCE(rs.recommendation_type, 'No Action') AS main_recommendation,
+                CASE
+                    WHEN ss.segment_name = 'Service Issue Segment'
+                        THEN 'Customer service calls >= 3'
+                    WHEN ss.segment_name = 'Tariff Optimization Segment'
+                        THEN 'High day charge'
+                    WHEN ss.segment_name = 'International Usage Segment'
+                        THEN 'International plan'
+                    WHEN ss.segment_name = 'Stable Customer Segment'
+                        THEN 'Stable customer profile'
+                    WHEN rs.recommendation_type = 'Service Recovery Call'
+                        THEN 'Customer service calls >= 3'
+                    WHEN rs.recommendation_type = 'Tariff Optimization'
+                        THEN 'High day charge'
+                    WHEN rs.recommendation_type = 'International Plan Review'
+                        THEN 'International plan'
+                    WHEN rs.recommendation_type = 'Voice Mail Offer'
+                        THEN 'No voice mail plan'
+                    ELSE COALESCE(rfs.main_risk_factor, 'Stable customer profile')
+                END AS main_risk_factor
             FROM segment_stats ss
             LEFT JOIN recommendation_stats rs
                 ON ss.segment_name = rs.segment_name
                 AND rs.row_number = 1
+            LEFT JOIN risk_factor_stats rfs
+                ON ss.segment_name = rfs.segment_name
+                AND rfs.row_number = 1
             ORDER BY ss.average_churn_probability DESC
         """)
 
@@ -245,9 +297,21 @@ class ExportRepository:
                 SUM(CASE WHEN p.risk_group = 'High' THEN 1 ELSE 0 END) AS high_risk_customers,
                 AVG(p.churn_probability) AS average_churn_probability,
                 SUM(p.churn_probability * p.estimated_total_charge) AS estimated_revenue_at_risk,
-                MIN(r.priority) AS priority,
-                MIN(r.recommendation_reason) AS recommendation_reason,
-                MIN(p.main_risk_factor) AS main_risk_factor
+                MODE() WITHIN GROUP (
+                    ORDER BY r.priority
+                ) FILTER (
+                    WHERE r.priority IS NOT NULL
+                ) AS priority,
+                MODE() WITHIN GROUP (
+                    ORDER BY r.recommendation_reason
+                ) FILTER (
+                    WHERE r.recommendation_reason IS NOT NULL
+                ) AS recommendation_reason,
+                MODE() WITHIN GROUP (
+                    ORDER BY p.main_risk_factor
+                ) FILTER (
+                    WHERE p.main_risk_factor IS NOT NULL
+                ) AS main_risk_factor
             FROM customer_recommendations r
             JOIN predictions p
                 ON r.customer_id = p.customer_id
@@ -261,6 +325,71 @@ class ExportRepository:
         return self._to_csv(rows)
 
     def export_dashboard_summary_json(self) -> str:
+        payload = self._get_dashboard_summary_payload()
+        return json.dumps(payload, default=str, ensure_ascii=False, indent=2)
+
+    def export_dashboard_summary_csv(self) -> str:
+        payload = self._get_dashboard_summary_payload()
+        rows = []
+
+        kpis = payload["kpis"]
+        rows.extend(
+            [
+                {
+                    "section": "KPI",
+                    "metric": "Всего клиентов",
+                    "value": kpis["total_customers"],
+                },
+                {
+                    "section": "KPI",
+                    "metric": "Клиенты высокого риска",
+                    "value": kpis["high_risk_customers"],
+                },
+                {
+                    "section": "KPI",
+                    "metric": "Средняя вероятность оттока",
+                    "value": round(float(kpis["average_churn_probability"] or 0), 4),
+                },
+                {
+                    "section": "KPI",
+                    "metric": "Выручка под риском",
+                    "value": round(float(kpis["estimated_revenue_at_risk"] or 0), 2),
+                },
+                {
+                    "section": "KPI",
+                    "metric": "Дата последнего прогноза",
+                    "value": kpis["last_scoring_date"],
+                },
+            ]
+        )
+
+        for row in payload["risk_distribution"]:
+            rows.append(
+                {
+                    "section": "Распределение риска",
+                    "metric": RISK_GROUP_TRANSLATIONS.get(
+                        row["risk_group"],
+                        row["risk_group"],
+                    ),
+                    "value": row["customers_count"],
+                }
+            )
+
+        for row in payload["recommendations_summary"]:
+            rows.append(
+                {
+                    "section": "Сводка рекомендаций",
+                    "metric": RECOMMENDATION_TRANSLATIONS.get(
+                        row["recommendation_type"],
+                        row["recommendation_type"],
+                    ),
+                    "value": row["customers_count"],
+                }
+            )
+
+        return self._to_csv(rows)
+
+    def _get_dashboard_summary_payload(self) -> dict:
         kpis_query = text("""
             SELECT
                 COUNT(*) AS total_customers,
@@ -282,11 +411,13 @@ class ExportRepository:
 
         recommendations_query = text("""
             SELECT
-                recommendation_type,
+                r.recommendation_type,
                 COUNT(*) AS customers_count
-            FROM customer_recommendations
-            WHERE recommendation_type != 'No Action'
-            GROUP BY recommendation_type
+            FROM customer_recommendations r
+            JOIN predictions p
+                ON r.customer_id = p.customer_id
+            WHERE r.recommendation_type != 'No Action'
+            GROUP BY r.recommendation_type
             ORDER BY customers_count DESC
         """)
 
@@ -300,7 +431,7 @@ class ExportRepository:
             "recommendations_summary": [dict(row) for row in recommendations],
         }
 
-        return json.dumps(payload, default=str, ensure_ascii=False, indent=2)
+        return payload
 
     def _to_csv(self, rows) -> str:
         output = io.StringIO()

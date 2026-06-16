@@ -115,7 +115,6 @@ services:
       AWS_DEFAULT_REGION: us-east-1
 
       GIT_PYTHON_REFRESH: quiet
-      N_CLUSTERS: 4
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -154,7 +153,6 @@ services:
       AWS_DEFAULT_REGION: us-east-1
 
       GIT_PYTHON_REFRESH: quiet
-      N_CLUSTERS: 4
     ports:
       - "8080:8080"
     volumes:
@@ -199,7 +197,6 @@ services:
       AWS_DEFAULT_REGION: us-east-1
 
       GIT_PYTHON_REFRESH: quiet
-      N_CLUSTERS: 4
     volumes:
       - ./airflow/dags:/opt/airflow/dags
       - ./airflow/logs:/opt/airflow/logs
@@ -230,7 +227,6 @@ services:
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       AWS_DEFAULT_REGION: us-east-1
 
-      N_CLUSTERS: 4
     command: ["python", "scripts/run_weekly_pipeline.py"]
 
 volumes:

@@ -32,6 +32,7 @@ export type CustomerFilterOptions = {
 
 export type CustomersResponse = {
   items: CustomerListItem[];
+  total: number;
 };
 
 export type CustomerDetail = {

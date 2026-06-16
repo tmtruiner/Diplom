@@ -1,6 +1,7 @@
 export type SegmentItem = {
   segment_name: string;
   clients_count: number;
+  high_risk_customers: number;
   average_churn_probability: number;
   high_risk_share: number;
   average_estimated_total_charge: number;

@@ -17,7 +17,7 @@ def get_customers(
     segment: str | None = Query(default=None),
     recommendation: str | None = Query(default=None),
     main_risk_factor: str | None = Query(default=None),
-    min_probability: float | None = Query(default=None),
+    min_probability: float | None = Query(default=None, ge=0, le=1),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),

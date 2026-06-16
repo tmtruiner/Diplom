@@ -39,38 +39,57 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("ru-RU").format(value);
 }
 
+function getRecommendationChartLabel(value: string | null | undefined) {
+  const map: Record<string, string> = {
+    "Service Recovery Call": "Восстановление сервиса",
+    "Tariff Optimization": "Оптимизация тарифа",
+    "Voice Mail Offer": "Голосовая почта",
+    "Voice Mail Plan Offer": "Голосовая почта",
+    "Retention Discount": "Скидка на удержание",
+    "International Plan Review": "Международный тариф",
+  };
+
+  if (!value) {
+    return "-";
+  }
+
+  return map[value] ?? translateRecommendation(value);
+}
+
+function translateImpact(value: "Low" | "Medium" | "High") {
+  if (value === "High") return "Высокое влияние";
+  if (value === "Medium") return "Среднее влияние";
+  return "Низкое влияние";
+}
+
+function getImpactTone(value: "Low" | "Medium" | "High") {
+  if (value === "High") return "red";
+  if (value === "Medium") return "amber";
+  return "green";
+}
+
 function KpiCard({
   title,
   value,
-  helper,
   icon: Icon,
   tone,
-  onClick,
 }: {
   title: string;
   value: string;
-  helper?: string;
   icon: React.ElementType;
   tone: "blue" | "red" | "green" | "amber" | "violet";
-  onClick?: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className={`${styles.kpiCard} ${onClick ? styles.clickableCard : ""}`}
-      onClick={onClick}
-      disabled={!onClick}
-    >
+    <section className={styles.kpiCard}>
       <div>
         <div className={styles.kpiTitle}>{title}</div>
         <div className={styles.kpiValue}>{value}</div>
-        {helper && <div className={styles.kpiHelper}>{helper}</div>}
       </div>
 
       <div className={`${styles.kpiIcon} ${styles[tone]}`}>
         <Icon size={22} />
       </div>
-    </button>
+    </section>
   );
 }
 
@@ -166,7 +185,8 @@ export function DashboardPage({
   const recommendationsSummary = data.recommendations_summary
     .filter((item) => item.recommendation_type !== "No Action")
     .map((item) => ({
-      type: translateRecommendation(item.recommendation_type),
+      type: getRecommendationChartLabel(item.recommendation_type),
+      fullType: translateRecommendation(item.recommendation_type),
       originalType: item.recommendation_type,
       count: item.customers_count,
     }));
@@ -188,25 +208,20 @@ export function DashboardPage({
         <KpiCard
           title="Всего клиентов"
           value={formatNumber(data.kpis.total_customers)}
-          helper="Последний скоринговый набор данных"
           icon={Users}
           tone="blue"
-          onClick={() => onOpenCustomers()}
         />
 
         <KpiCard
           title="Клиенты высокого риска"
           value={formatNumber(data.kpis.high_risk_customers)}
-          helper="Клиенты выше порога высокого риска"
           icon={ShieldAlert}
           tone="red"
-          onClick={() => onOpenCustomers({ riskGroup: "High" })}
         />
 
         <KpiCard
           title="Средняя вероятность оттока"
           value={data.kpis.average_churn_probability.toFixed(2)}
-          helper="По всем скоринговым клиентам"
           icon={Gauge}
           tone="violet"
         />
@@ -214,7 +229,6 @@ export function DashboardPage({
         <KpiCard
           title="Активные рекомендации"
           value={formatNumber(activeRecommendationsCount)}
-          helper="Клиенты, требующие действий по удержанию"
           icon={Lightbulb}
           tone="green"
         />
@@ -320,17 +334,25 @@ export function DashboardPage({
               <BarChart
                 data={recommendationsSummary}
                 layout="vertical"
-                margin={{ left: 120, right: 20 }}
+                margin={{ top: 8, right: 24, left: 24, bottom: 8 }}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" />
                 <YAxis
                   dataKey="type"
                   type="category"
-                  width={240}
+                  width={170}
                   tick={{ fontSize: 12 }}
                 />
-                <Tooltip />
+                <Tooltip
+                  formatter={(value) => [
+                    formatNumber(Number(value)),
+                    "Клиенты",
+                  ]}
+                  labelFormatter={(_, payload) =>
+                    payload?.[0]?.payload?.fullType ?? ""
+                  }
+                />
                 <Bar dataKey="count" radius={[0, 8, 8, 0]}>
                   {recommendationsSummary.map((entry) => (
                     <Cell
@@ -384,10 +406,8 @@ export function DashboardPage({
                   </div>
                 </div>
 
-                <Badge tone={item.impact === "High" ? "red" : "amber"}>
-                  {item.impact === "High"
-                    ? "Высокое влияние"
-                    : "Среднее влияние"}
+                <Badge tone={getImpactTone(item.impact)}>
+                  {translateImpact(item.impact)}
                 </Badge>
               </button>
             ))}

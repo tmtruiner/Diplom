@@ -14,7 +14,6 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
-from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
@@ -82,23 +81,28 @@ def create_model_version(
 
 
 def train_and_register_churn_model(
-    df: pd.DataFrame,
+    training_df: pd.DataFrame,
+    validation_df: pd.DataFrame,
+    test_df: pd.DataFrame,
     experiment_name: str = "Churn Analytics",
     registered_model_name: str = "churn_prediction_model",
 ) -> dict:
-    if "churn" not in df.columns:
-        raise ValueError("Column 'churn' is required for training")
+    for dataset_name, dataset in (
+        ("training", training_df),
+        ("validation", validation_df),
+        ("test", test_df),
+    ):
+        if "churn" not in dataset.columns:
+            raise ValueError(
+                f"Column 'churn' is required in the {dataset_name} dataset"
+            )
 
-    x = df[FEATURE_COLUMNS]
-    y = df["churn"].astype(int)
-
-    x_train, x_test, y_train, y_test = train_test_split(
-        x,
-        y,
-        test_size=0.2,
-        random_state=42,
-        stratify=y,
-    )
+    x_train = training_df[FEATURE_COLUMNS]
+    y_train = training_df["churn"].astype(int)
+    x_validation = validation_df[FEATURE_COLUMNS]
+    y_validation = validation_df["churn"].astype(int)
+    x_test = test_df[FEATURE_COLUMNS]
+    y_test = test_df["churn"].astype(int)
 
     preprocessor = ColumnTransformer(
         transformers=[
@@ -121,27 +125,27 @@ def train_and_register_churn_model(
 
         model.fit(x_train, y_train)
 
-        probabilities = model.predict_proba(x_test)[:, 1]
-        predictions = (probabilities >= 0.5).astype(int)
-
-        roc_auc = float(roc_auc_score(y_test, probabilities))
-        f1 = float(f1_score(y_test, predictions))
-        recall = float(recall_score(y_test, predictions))
-        precision = float(precision_score(y_test, predictions))
-        accuracy = float(accuracy_score(y_test, predictions))
+        validation_metrics = evaluate_model(
+            model,
+            x_validation,
+            y_validation,
+        )
+        test_metrics = evaluate_model(model, x_test, y_test)
 
         mlflow.log_param("algorithm", "Gradient Boosting")
-        mlflow.log_param("test_size", 0.2)
         mlflow.log_param("random_state", 42)
+        mlflow.log_param("training_rows", len(training_df))
+        mlflow.log_param("validation_rows", len(validation_df))
+        mlflow.log_param("test_rows", len(test_df))
         mlflow.log_param("high_risk_threshold", 0.7)
         mlflow.log_param("medium_risk_threshold", 0.35)
         mlflow.log_param("registered_model_name", registered_model_name)
 
-        mlflow.log_metric("roc_auc", roc_auc)
-        mlflow.log_metric("f1_score", f1)
-        mlflow.log_metric("recall", recall)
-        mlflow.log_metric("precision", precision)
-        mlflow.log_metric("accuracy", accuracy)
+        for metric_name, metric_value in validation_metrics.items():
+            mlflow.log_metric(f"validation_{metric_name}", metric_value)
+
+        for metric_name, metric_value in test_metrics.items():
+            mlflow.log_metric(f"test_{metric_name}", metric_value)
 
         # Важно: модель сначала логируется как артефакт run,
         # а регистрация в Model Registry выполняется отдельно.
@@ -165,12 +169,26 @@ def train_and_register_churn_model(
             "model_name": "Churn prediction model",
             "model_version": model_version,
             "algorithm": "Gradient Boosting",
-            "roc_auc": roc_auc,
-            "f1_score": f1,
-            "recall": recall,
-            "precision": precision,
-            "accuracy": accuracy,
+            "roc_auc": test_metrics["roc_auc"],
+            "f1_score": test_metrics["f1_score"],
+            "recall": test_metrics["recall"],
+            "precision": test_metrics["precision"],
+            "accuracy": test_metrics["accuracy"],
+            "validation_metrics": validation_metrics,
         }
+
+
+def evaluate_model(model, x: pd.DataFrame, y: pd.Series) -> dict[str, float]:
+    probabilities = model.predict_proba(x)[:, 1]
+    predictions = (probabilities >= 0.5).astype(int)
+
+    return {
+        "roc_auc": float(roc_auc_score(y, probabilities)),
+        "f1_score": float(f1_score(y, predictions, zero_division=0)),
+        "recall": float(recall_score(y, predictions, zero_division=0)),
+        "precision": float(precision_score(y, predictions, zero_division=0)),
+        "accuracy": float(accuracy_score(y, predictions)),
+    }
 
 
 def score_customers(df: pd.DataFrame, model_uri: str) -> pd.DataFrame:

@@ -70,6 +70,12 @@ export function translateSegment(value: string | null | undefined) {
     "High Charge Customers": "Клиенты с высокими расходами",
     "High Churn Risk Customers": "Клиенты с высоким риском оттока",
     "Stable Customer Profile": "Клиенты со стабильным профилем",
+    "High Risk High Value Segment": "Высокий риск и высокая ценность",
+    "High Risk Segment": "Высокий риск",
+    "Service Issue Segment": "Сервисные проблемы",
+    "Tariff Optimization Segment": "Тарифная оптимизация",
+    "International Usage Segment": "Международное использование",
+    "Stable Customer Segment": "Стабильные клиенты",
   };
 
   if (!value) {
@@ -99,6 +105,9 @@ export function translateRecommendationReason(value?: string | null) {
 
     "Customer has low churn probability; no retention action is required.":
       "У клиента низкая вероятность оттока; действие по удержанию не требуется.",
+
+    "Customer has elevated churn probability; offer a retention discount.":
+      "У клиента повышенная вероятность оттока; предложите скидку на удержание.",
 
     "No action required.":
       "Действие не требуется.",
@@ -145,6 +154,13 @@ export function translateRecommendationReason(value?: string | null) {
     normalizedValue.includes("stable account")
   ) {
     return "У клиента низкая вероятность оттока и стабильный профиль; дополнительных действий не требуется.";
+  }
+
+  if (
+    normalizedValue.includes("elevated churn probability") ||
+    normalizedValue.includes("retention discount")
+  ) {
+    return "У клиента повышенная вероятность оттока; предложите скидку на удержание.";
   }
 
   if (

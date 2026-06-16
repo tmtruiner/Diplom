@@ -2,6 +2,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 
+CHURN_PROBABILITY_HEALTH_WEIGHT = 70
+
+
 class CustomersRepository:
     def __init__(self, db: Session):
         self.db = db
@@ -24,7 +27,9 @@ class CustomersRepository:
         main_risk_factor: str | None,
         estimated_total_charge: float,
     ) -> int:
-        probability_penalty = churn_probability * 42
+        probability_penalty = (
+            churn_probability * CHURN_PROBABILITY_HEALTH_WEIGHT
+        )
 
         if risk_group == "High":
             risk_penalty = 8
@@ -40,7 +45,11 @@ class CustomersRepository:
         else:
             charge_penalty = 0
 
-        factor_penalty = 4 if main_risk_factor else 0
+        has_actionable_factor = (
+            main_risk_factor is not None
+            and main_risk_factor != "Stable customer profile"
+        )
+        factor_penalty = 4 if has_actionable_factor else 0
 
         score = (
             100
@@ -129,7 +138,10 @@ class CustomersRepository:
     ) -> list[dict]:
         drivers = []
 
-        if main_risk_factor:
+        if (
+            main_risk_factor
+            and main_risk_factor != "Stable customer profile"
+        ):
             drivers.append(
                 {
                     "code": "main_risk_factor",
@@ -242,7 +254,7 @@ class CustomersRepository:
         main_risk_factor: str | None = None,
         limit: int = 100,
         offset: int = 0,
-    ) -> list[dict]:
+    ) -> dict:
         query = """
             SELECT
                 p.customer_id,
@@ -256,7 +268,8 @@ class CustomersRepository:
 
                 r.recommendation_type,
                 r.recommendation_reason,
-                r.priority
+                r.priority,
+                COUNT(*) OVER() AS total_count
             FROM predictions p
             LEFT JOIN customer_segments s
                 ON p.customer_id = s.customer_id
@@ -340,7 +353,14 @@ class CustomersRepository:
                 }
             )
 
-        return result
+        total = int(rows[0]["total_count"]) if rows else 0
+
+        return {
+            "items": result,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
 
     def get_customer_detail(self, customer_id: str) -> dict | None:
         query = text("""

@@ -19,11 +19,11 @@ def assign_main_risk_factor(row: pd.Series) -> str:
     if row.get("customer_service_calls", 0) >= 3:
         return "Customer service calls >= 3"
 
-    if str(row.get("international_plan", "")).lower() in ["yes", "true", "1"]:
-        return "International plan"
-
     if row.get("total_day_charge", 0) >= 40:
         return "High day charge"
+
+    if str(row.get("international_plan", "")).lower() in ["yes", "true", "1"]:
+        return "International plan"
 
     if str(row.get("voice_mail_plan", "")).lower() in ["no", "false", "0"]:
         return "No voice mail plan"

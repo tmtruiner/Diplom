@@ -4,7 +4,6 @@ import {
   FileDown,
   Lightbulb,
   Table,
-  Users,
 } from "lucide-react";
 
 import {
@@ -15,10 +14,13 @@ import {
 import styles from "./ExportPage.module.css";
 
 type ExportItem = {
+  group: "Клиенты" | "Аналитика" | "Отчеты";
   title: string;
   description: string;
+  purpose: string;
+  fields: string[];
   fileName: string;
-  format: "CSV" | "JSON";
+  format: "CSV";
   icon: React.ElementType;
   status: "Ready" | "Soon";
   endpoint: ExportEndpoint;
@@ -26,19 +28,12 @@ type ExportItem = {
 
 const exportItems: ExportItem[] = [
   {
-    title: "Все клиенты",
-    description:
-      "Выгрузка таблицы клиентов с вероятностью оттока, группой риска, сегментом и рекомендацией.",
-    fileName: "customers_export.csv",
-    format: "CSV",
-    icon: Users,
-    status: "Ready",
-    endpoint: "customers",
-  },
-  {
+    group: "Клиенты",
     title: "Клиенты высокого риска",
     description:
       "Выгрузка только клиентов из группы высокого риска для приоритизации действий по удержанию.",
+    purpose: "Список клиентов, с которыми нужно работать в первую очередь.",
+    fields: ["ID клиента", "Фактор риска", "Оценочные расходы", "Приоритет"],
     fileName: "high_risk_customers.csv",
     format: "CSV",
     icon: Table,
@@ -46,9 +41,12 @@ const exportItems: ExportItem[] = [
     endpoint: "high-risk-customers",
   },
   {
+    group: "Аналитика",
     title: "Сводка по сегментам",
     description:
       "Выгрузка аналитики по сегментам: количество клиентов, средний риск, доля высокого риска и основное действие.",
+    purpose: "Сравнение сегментов и подготовка управленческой сводки.",
+    fields: ["Сегмент", "Клиенты", "Высокий риск", "Основное действие"],
     fileName: "segments_summary.csv",
     format: "CSV",
     icon: BarChart3,
@@ -56,9 +54,12 @@ const exportItems: ExportItem[] = [
     endpoint: "segments",
   },
   {
+    group: "Аналитика",
     title: "План рекомендаций",
     description:
       "Выгрузка агрегированных действий по удержанию с количеством клиентов, метриками риска и выручкой под риском.",
+    purpose: "Планирование действий по удержанию и оценка масштаба работ.",
+    fields: ["Рекомендация", "Клиенты", "Выручка под риском", "Приоритет"],
     fileName: "recommendations_plan.csv",
     format: "CSV",
     icon: Lightbulb,
@@ -66,21 +67,48 @@ const exportItems: ExportItem[] = [
     endpoint: "recommendations",
   },
   {
+    group: "Отчеты",
     title: "Сводка дашборда",
     description:
-      "Выгрузка текущих KPI и верхнеуровневых метрик дашборда для отчётности.",
-    fileName: "dashboard_summary.json",
-    format: "JSON",
+      "Выгрузка текущих KPI, распределения риска и сводки рекомендаций в табличном виде.",
+    purpose: "Передача краткой сводки в отчет или электронную таблицу.",
+    fields: ["Раздел", "Показатель", "Значение"],
+    fileName: "dashboard_summary.csv",
+    format: "CSV",
     icon: FileDown,
     status: "Ready",
     endpoint: "dashboard-summary",
   },
 ];
 
+const groupedExportItems = exportItems.reduce<Record<ExportItem["group"], ExportItem[]>>(
+  (groups, item) => {
+    groups[item.group].push(item);
+    return groups;
+  },
+  {
+    Клиенты: [],
+    Аналитика: [],
+    Отчеты: [],
+  }
+);
+
 function translateStatus(status: ExportItem["status"]) {
   if (status === "Ready") return "Готово";
   if (status === "Soon") return "Скоро";
   return status;
+}
+
+function formatFileCount(count: number) {
+  if (count % 10 === 1 && count % 100 !== 11) {
+    return `${count} файл`;
+  }
+
+  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
+    return `${count} файла`;
+  }
+
+  return `${count} файлов`;
 }
 
 function Badge({
@@ -122,6 +150,22 @@ function ExportCard({ item }: { item: ExportItem }) {
         </div>
       </div>
 
+      <div className={styles.exportDetails}>
+        <div>
+          <div className={styles.detailLabel}>Назначение</div>
+          <p className={styles.detailText}>{item.purpose}</p>
+        </div>
+
+        <div>
+          <div className={styles.detailLabel}>Состав данных</div>
+          <div className={styles.fieldList}>
+            {item.fields.map((field) => (
+              <span key={field}>{field}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
       <div className={styles.exportFooter}>
         <div>
           <div className={styles.fileLabel}>Файл</div>
@@ -158,14 +202,26 @@ export function ExportPage() {
           <p className={styles.pageSubtitle}>
             Скачивание аналитических наборов данных, списков клиентов и отчётов по удержанию.
           </p>
+
+          <div className={styles.headerGroups}>
+            {Object.entries(groupedExportItems).map(([group, items]) => (
+              <span key={group}>
+                {group}: {formatFileCount(items.length)}
+              </span>
+            ))}
+          </div>
         </div>
       </header>
 
-      <section className={styles.exportGrid}>
-        {exportItems.map((item) => (
-          <ExportCard key={item.title} item={item} />
-        ))}
-      </section>
+      {Object.entries(groupedExportItems).map(([group, items]) => (
+        <section key={group} className={styles.exportGroup}>
+          <div className={styles.exportGrid}>
+            {items.map((item) => (
+              <ExportCard key={item.title} item={item} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

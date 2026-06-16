@@ -29,17 +29,30 @@ class RecommendationsRepository:
                     p.churn_probability * p.estimated_total_charge
                 ) AS estimated_revenue_at_risk,
 
-                MIN(r.recommendation_reason) AS recommendation_reason,
+                MODE() WITHIN GROUP (
+                    ORDER BY r.recommendation_reason
+                ) FILTER (
+                    WHERE r.recommendation_reason IS NOT NULL
+                ) AS recommendation_reason,
 
-                MIN(r.priority) AS priority,
+                MODE() WITHIN GROUP (
+                    ORDER BY r.priority
+                ) FILTER (
+                    WHERE r.priority IS NOT NULL
+                ) AS priority,
 
-                MIN(p.main_risk_factor) AS main_risk_factor
+                MODE() WITHIN GROUP (
+                    ORDER BY p.main_risk_factor
+                ) FILTER (
+                    WHERE p.main_risk_factor IS NOT NULL
+                ) AS main_risk_factor
 
             FROM customer_recommendations r
             JOIN predictions p
                 ON r.customer_id = p.customer_id
 
             WHERE r.recommendation_type IS NOT NULL
+              AND r.recommendation_type != 'No Action'
 
             GROUP BY r.recommendation_type
             ORDER BY

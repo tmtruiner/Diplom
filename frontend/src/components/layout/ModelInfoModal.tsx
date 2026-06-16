@@ -139,6 +139,11 @@ export function ModelInfoModal({ isOpen, onClose }: ModelInfoModalProps) {
 
               <div className={styles.grid}>
                 <InfoItem
+                  label="Дата обучения"
+                  value={formatDateTime(scoringInfo.last_training_date)}
+                />
+
+                <InfoItem
                   label="ROC-AUC"
                   value={scoringInfo.roc_auc?.toFixed(2) ?? "-"}
                 />

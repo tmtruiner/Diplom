@@ -13,7 +13,7 @@ default_args = {
 @dag(
     dag_id="churn_weekly_pipeline",
     default_args=default_args,
-    description="Weekly ML pipeline for churn prediction, clustering and recommendations",
+    description="Weekly ML pipeline for churn prediction, segmentation and recommendations",
     start_date=datetime(2026, 1, 1),
     schedule="@weekly",
     catchup=False,

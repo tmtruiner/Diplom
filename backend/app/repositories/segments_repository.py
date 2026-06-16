@@ -34,6 +34,8 @@ class SegmentsRepository:
                 FROM customer_segments s
                 JOIN customer_recommendations r
                     ON s.customer_id = r.customer_id
+                JOIN predictions p
+                    ON s.customer_id = p.customer_id
                 WHERE r.recommendation_type IS NOT NULL
                   AND r.recommendation_type != 'No Action'
                 GROUP BY s.segment_id, s.segment_name, r.recommendation_type
@@ -46,12 +48,22 @@ class SegmentsRepository:
                     COUNT(*) AS factor_count,
                     ROW_NUMBER() OVER (
                         PARTITION BY s.segment_id, s.segment_name
-                        ORDER BY COUNT(*) DESC
+                        ORDER BY
+                            COUNT(*) DESC,
+                            CASE p.main_risk_factor
+                                WHEN 'Customer service calls >= 3' THEN 1
+                                WHEN 'High day charge' THEN 2
+                                WHEN 'International plan' THEN 3
+                                WHEN 'No voice mail plan' THEN 4
+                                WHEN 'Stable customer profile' THEN 5
+                                ELSE 6
+                            END
                     ) AS row_number
                 FROM customer_segments s
                 JOIN predictions p
                     ON s.customer_id = p.customer_id
                 WHERE p.main_risk_factor IS NOT NULL
+                  AND p.main_risk_factor != 'Stable customer profile'
                 GROUP BY s.segment_id, s.segment_name, p.main_risk_factor
             )
             SELECT
@@ -62,7 +74,25 @@ class SegmentsRepository:
                 ss.high_risk_customers,
                 ss.average_estimated_total_charge,
                 rs.recommendation_type AS main_recommendation,
-                rfs.main_risk_factor AS main_risk_factor
+                CASE
+                    WHEN ss.segment_name = 'Service Issue Segment'
+                        THEN 'Customer service calls >= 3'
+                    WHEN ss.segment_name = 'Tariff Optimization Segment'
+                        THEN 'High day charge'
+                    WHEN ss.segment_name = 'International Usage Segment'
+                        THEN 'International plan'
+                    WHEN ss.segment_name = 'Stable Customer Segment'
+                        THEN 'Stable customer profile'
+                    WHEN rs.recommendation_type = 'Service Recovery Call'
+                        THEN 'Customer service calls >= 3'
+                    WHEN rs.recommendation_type = 'Tariff Optimization'
+                        THEN 'High day charge'
+                    WHEN rs.recommendation_type = 'International Plan Review'
+                        THEN 'International plan'
+                    WHEN rs.recommendation_type = 'Voice Mail Offer'
+                        THEN 'No voice mail plan'
+                    ELSE COALESCE(rfs.main_risk_factor, 'Stable customer profile')
+                END AS main_risk_factor
             FROM segment_stats ss
             LEFT JOIN recommendation_stats rs
                 ON ss.segment_id = rs.segment_id
@@ -88,6 +118,7 @@ class SegmentsRepository:
                     "segment_id": row["segment_id"],
                     "segment_name": row["segment_name"],
                     "clients_count": clients_count,
+                    "high_risk_customers": high_risk_customers,
                     "average_churn_probability": float(
                         row["average_churn_probability"] or 0
                     ),

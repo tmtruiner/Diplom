@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   Activity,
   AlertTriangle,
-  BadgeDollarSign,
   Search,
   SlidersHorizontal,
   Target,
@@ -29,6 +28,7 @@ import type {
 import {
   translateRecommendation,
   translateRecommendationReason,
+  translatePriority,
   translateRiskFactor,
   translateRiskGroup,
   translateSegment,
@@ -67,36 +67,6 @@ function formatDate(value?: string | null) {
   }
 
   return new Intl.DateTimeFormat("ru-RU").format(date);
-}
-
-function translateRiskDriver(driver: {
-  code: string;
-  value: string | number | null;
-  label: string;
-}) {
-  if (driver.code === "main_risk_factor") {
-    return translateRiskFactor(String(driver.value ?? driver.label));
-  }
-
-  if (driver.code === "high_churn_probability") {
-    return "Высокая вероятность оттока";
-  }
-
-  if (driver.code === "high_estimated_charge") {
-    return "Высокие оценочные расходы";
-  }
-
-  if (driver.code === "segment") {
-    return `Сегмент: ${translateSegment(String(driver.value ?? driver.label))}`;
-  }
-
-  if (driver.code === "recommended_action") {
-    return `Рекомендация: ${translateRecommendation(
-      String(driver.value ?? driver.label)
-    )}`;
-  }
-
-  return driver.label;
 }
 
 function Badge({
@@ -198,21 +168,6 @@ function CustomSelect({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className={styles.detailRow}>
-      <span className={styles.detailLabel}>{label}</span>
-      <span className={styles.detailValue}>{value}</span>
-    </div>
-  );
-}
-
 function CustomerDetailsPanel({
   customer,
 }: {
@@ -229,12 +184,15 @@ function CustomerDetailsPanel({
   const health = customer.health;
   const healthColor = getHealthColor(health.status.tone);
   const nextAction = health.next_best_action;
+  const riskFactor = customer.prediction.main_risk_factor;
+  const hasActionableRiskFactor =
+    riskFactor && riskFactor !== "Stable customer profile";
 
   return (
     <aside className={styles.detailsPanel}>
       <div className={styles.healthHeader}>
         <div>
-          <div className={styles.detailsLabel}>Карточка здоровья</div>
+          <div className={styles.detailsLabel}>Состояние клиента</div>
           <h2 className={styles.detailsTitle}>{customer.customer_id}</h2>
         </div>
 
@@ -260,7 +218,7 @@ function CustomerDetailsPanel({
         </div>
 
         <div className={styles.healthHeroContent}>
-          <div className={styles.healthHeroLabel}>Индекс здоровья</div>
+          <div className={styles.healthHeroLabel}>Оценка состояния</div>
 
           <span
             className={`${styles.healthStatusBadge} ${
@@ -271,60 +229,35 @@ function CustomerDetailsPanel({
           </span>
 
           <div className={styles.healthDate}>
-            Последний скоринг: {formatDate(customer.prediction.scoring_date)}
+            Прогноз от {formatDate(customer.prediction.scoring_date)}
           </div>
         </div>
       </section>
 
       <section className={styles.healthSection}>
         <h3 className={styles.healthSectionTitle}>
-          <BadgeDollarSign size={15} />
-          Ключевые показатели
-        </h3>
-
-        <div className={styles.detailBox}>
-          <DetailRow
-            label="Вероятность оттока"
-            value={customer.prediction.churn_probability.toFixed(2)}
-          />
-          <DetailRow
-            label="Группа риска"
-            value={
-              <Badge tone={getRiskTone(customer.prediction.risk_group)}>
-                {translateRiskGroup(customer.prediction.risk_group)}
-              </Badge>
-            }
-          />
-          <DetailRow
-            label="Выручка под риском"
-            value={formatMoney(health.revenue_at_risk)}
-          />
-          <DetailRow
-            label="Сегмент"
-            value={translateSegment(customer.segment.segment_name)}
-          />
-        </div>
-      </section>
-
-      <section className={styles.healthSection}>
-        <h3 className={styles.healthSectionTitle}>
           <AlertTriangle size={15} />
-          Основные причины риска
+          Почему требуется внимание
         </h3>
 
-        <div className={styles.riskDriversList}>
-          {health.risk_drivers.map((driver) => (
-            <div key={driver.code} className={styles.riskDriverItem}>
-              {translateRiskDriver(driver)}
-            </div>
-          ))}
+        <div className={styles.riskReasonBox}>
+          <div className={styles.riskReasonTitle}>
+            {hasActionableRiskFactor
+              ? translateRiskFactor(riskFactor)
+              : "Явный фактор риска не выявлен"}
+          </div>
+          <p className={styles.riskReasonText}>
+            {hasActionableRiskFactor
+              ? "Этот фактор сильнее всего связан с текущей вероятностью ухода клиента."
+              : "Повышенное внимание требуется из-за общей вероятности ухода клиента."}
+          </p>
         </div>
       </section>
 
       <section className={styles.healthSection}>
         <h3 className={styles.healthSectionTitle}>
           <Target size={15} />
-          Оптимальное действие
+          Рекомендуемое действие
         </h3>
 
         <div className={styles.nextActionBox}>
@@ -337,6 +270,16 @@ function CustomerDetailsPanel({
               ? translateRecommendationReason(nextAction.recommendation_reason)
               : "Для клиента не требуется отдельное действие по удержанию."}
           </p>
+
+          <div className={styles.nextActionMeta}>
+            <span>
+              Приоритет:{" "}
+              <strong>{translatePriority(nextAction.priority)}</strong>
+            </span>
+            <span>
+              Под риском: <strong>{formatMoney(health.revenue_at_risk)}</strong>
+            </span>
+          </div>
         </div>
       </section>
     </aside>
@@ -351,6 +294,7 @@ export function CustomersPage({
   initialFilters = {},
 }: CustomersPageProps) {
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
+  const [totalCustomers, setTotalCustomers] = useState(0);
 
   const [filterOptions, setFilterOptions] = useState<CustomerFilterOptions>({
     risk_groups: [],
@@ -423,10 +367,11 @@ export function CustomersPage({
       mainRiskFactor,
       minProbability,
     })
-      .then((response: { items: CustomerListItem[] }) => {
+      .then((response) => {
         const items = response.items ?? [];
 
         setCustomers(items);
+        setTotalCustomers(response.total ?? items.length);
 
         if (items.length > 0) {
           setSelectedCustomerId(items[0].customer_id);
@@ -437,6 +382,7 @@ export function CustomersPage({
       })
       .catch((error: Error) => {
         setCustomers([]);
+        setTotalCustomers(0);
         setSelectedCustomerId(null);
         setSelectedCustomer(null);
         setError(error.message);
@@ -606,7 +552,7 @@ export function CustomersPage({
               <p>
                 {isLoadingList
                   ? "Загрузка клиентов..."
-                  : `Загружено клиентов: ${customers.length}`}
+                  : `Показано клиентов: ${customers.length} из ${totalCustomers}`}
               </p>
             </div>
           </div>

@@ -637,19 +637,24 @@
   color: #64748b;
 }
 
-.riskDriversList {
-  display: grid;
-  gap: 8px;
+.riskReasonBox {
+  border-left: 3px solid #f59e0b;
+  border-radius: 4px 14px 14px 4px;
+  background: #fffbeb;
+  padding: 13px 14px;
 }
 
-.riskDriverItem {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
-  color: #334155;
-  padding: 10px 12px;
+.riskReasonTitle {
+  color: #92400e;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.riskReasonText {
+  margin: 6px 0 0;
+  color: #a16207;
   font-size: 13px;
-  font-weight: 700;
+  line-height: 1.45;
 }
 
 .nextActionBox {
@@ -670,6 +675,22 @@
   color: #1e40af;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.nextActionMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #bfdbfe;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nextActionMeta strong {
+  color: #0f172a;
 }
 
 .trendBox {

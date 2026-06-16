@@ -59,11 +59,13 @@ export async function fetchCustomers(
   if (Array.isArray(data)) {
     return {
       items: data,
+      total: data.length,
     };
   }
 
   return {
     items: data.items ?? [],
+    total: data.total ?? data.items?.length ?? 0,
   };
 }
 

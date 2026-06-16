@@ -27,26 +27,31 @@
   font-size: 14px;
 }
 
-.noticeCard {
-  margin-bottom: 24px;
-  padding: 20px;
-  border: 1px solid #bfdbfe;
-  border-radius: 18px;
+.headerGroups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.headerGroups span {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
   background: #eff6ff;
-}
-
-.noticeTitle {
-  margin: 0;
-  font-size: 16px;
+  color: #1d4ed8;
+  padding: 5px 10px;
+  font-size: 12px;
   font-weight: 800;
-  color: #1e3a8a;
 }
 
-.noticeText {
-  margin: 6px 0 0;
-  color: #1e40af;
-  font-size: 14px;
-  line-height: 1.6;
+.exportGroup {
+  margin-top: 24px;
+}
+
+.exportGroup:first-of-type {
+  margin-top: 0;
 }
 
 .exportGrid {
@@ -96,6 +101,48 @@
   color: #64748b;
   font-size: 14px;
   line-height: 1.6;
+}
+
+.exportDetails {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.detailLabel {
+  color: #64748b;
+  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.detailText {
+  margin: 5px 0 0;
+  color: #334155;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.fieldList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.fieldList span {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #475569;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .exportFooter {
@@ -202,4 +249,11 @@
   .footerRight {
     flex-wrap: wrap;
   }
+}
+
+@media (max-width: 700px) {
+  .page {
+    padding: 20px;
+  }
+
 }

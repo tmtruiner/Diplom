@@ -86,3 +86,10 @@ def export_dashboard_summary(db: Session = Depends(get_db)):
     repository = ExportRepository(db)
     content = repository.export_dashboard_summary_json()
     return json_response(content, "dashboard_summary.json")
+
+
+@router.get("/dashboard-summary.csv")
+def export_dashboard_summary_csv(db: Session = Depends(get_db)):
+    repository = ExportRepository(db)
+    content = repository.export_dashboard_summary_csv()
+    return csv_response(content, "dashboard_summary.csv")

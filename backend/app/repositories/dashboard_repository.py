@@ -118,10 +118,12 @@ class DashboardRepository:
     def _get_recommendations_summary(self) -> list[dict]:
         query = text("""
             SELECT
-                recommendation_type,
+                r.recommendation_type,
                 COUNT(*) AS customers_count
-            FROM customer_recommendations
-            GROUP BY recommendation_type
+            FROM customer_recommendations r
+            JOIN predictions p
+                ON r.customer_id = p.customer_id
+            GROUP BY r.recommendation_type
             ORDER BY customers_count DESC
         """)
 
@@ -137,27 +139,53 @@ class DashboardRepository:
 
     def _get_top_risk_factors(self) -> list[dict]:
         query = text("""
+            WITH high_risk_factors AS (
+                SELECT
+                    main_risk_factor AS factor,
+                    COUNT(*) AS customers_count,
+                    SUM(COUNT(*)) OVER () AS total_high_risk_customers
+                FROM predictions
+                WHERE risk_group = 'High'
+                  AND main_risk_factor IS NOT NULL
+                GROUP BY main_risk_factor
+            )
             SELECT
-                main_risk_factor AS factor,
-                COUNT(*) AS customers_count
-            FROM predictions
-            WHERE risk_group = 'High'
-              AND main_risk_factor IS NOT NULL
-            GROUP BY main_risk_factor
+                factor,
+                customers_count,
+                CASE
+                    WHEN total_high_risk_customers > 0
+                    THEN customers_count::float / total_high_risk_customers
+                    ELSE 0
+                END AS high_risk_share
+            FROM high_risk_factors
             ORDER BY customers_count DESC
             LIMIT 5
         """)
 
         rows = self.db.execute(query).mappings().all()
 
-        return [
-            {
-                "factor": row["factor"],
-                "customers_count": row["customers_count"],
-                "impact": "High",
-            }
-            for row in rows
-        ]
+        result = []
+
+        for row in rows:
+            high_risk_share = float(row["high_risk_share"] or 0)
+
+            if high_risk_share >= 0.25:
+                impact = "High"
+            elif high_risk_share >= 0.05:
+                impact = "Medium"
+            else:
+                impact = "Low"
+
+            result.append(
+                {
+                    "factor": row["factor"],
+                    "customers_count": row["customers_count"],
+                    "high_risk_share": high_risk_share,
+                    "impact": impact,
+                }
+            )
+
+        return result
 
     def _get_priority_segments(self) -> list[dict]:
         query = text("""
@@ -166,8 +194,16 @@ class DashboardRepository:
                 COUNT(*) AS clients_count,
                 AVG(p.churn_probability) AS average_churn_probability,
                 SUM(CASE WHEN p.risk_group = 'High' THEN 1 ELSE 0 END) AS high_risk_customers,
-                MIN(p.main_risk_factor) AS main_risk_factor,
-                MIN(r.recommendation_type) AS main_recommendation
+                MODE() WITHIN GROUP (
+                    ORDER BY p.main_risk_factor
+                ) FILTER (
+                    WHERE p.main_risk_factor IS NOT NULL
+                ) AS main_risk_factor,
+                MODE() WITHIN GROUP (
+                    ORDER BY r.recommendation_type
+                ) FILTER (
+                    WHERE r.recommendation_type IS NOT NULL
+                ) AS main_recommendation
             FROM predictions p
             JOIN customer_segments s
                 ON p.customer_id = s.customer_id
@@ -204,14 +240,11 @@ class DashboardRepository:
         return result
 
     def _get_scoring_info(self) -> dict:
-        query = text("""
+        latest_scoring_query = text("""
             SELECT
                 model_name,
                 model_version,
                 algorithm,
-                roc_auc,
-                f1_score,
-                recall,
                 high_risk_threshold,
                 medium_risk_threshold,
                 scoring_date
@@ -220,10 +253,27 @@ class DashboardRepository:
             ORDER BY scoring_date DESC
             LIMIT 1
         """)
+        latest_training_metrics_query = text("""
+            SELECT
+                roc_auc,
+                f1_score,
+                recall,
+                scoring_date AS training_date
+            FROM scoring_jobs
+            WHERE status = 'success'
+              AND roc_auc IS NOT NULL
+              AND f1_score IS NOT NULL
+              AND recall IS NOT NULL
+            ORDER BY scoring_date DESC
+            LIMIT 1
+        """)
 
-        row = self.db.execute(query).mappings().first()
+        scoring_row = self.db.execute(latest_scoring_query).mappings().first()
+        metrics_row = self.db.execute(
+            latest_training_metrics_query
+        ).mappings().first()
 
-        if row is None:
+        if scoring_row is None:
             return {
                 "model_name": None,
                 "model_version": None,
@@ -234,16 +284,38 @@ class DashboardRepository:
                 "high_risk_threshold": 0.7,
                 "medium_risk_threshold": 0.35,
                 "last_scoring_date": None,
+                "last_training_date": None,
             }
 
         return {
-            "model_name": row["model_name"],
-            "model_version": row["model_version"],
-            "algorithm": row["algorithm"],
-            "roc_auc": float(row["roc_auc"]) if row["roc_auc"] is not None else None,
-            "f1_score": float(row["f1_score"]) if row["f1_score"] is not None else None,
-            "recall": float(row["recall"]) if row["recall"] is not None else None,
-            "high_risk_threshold": float(row["high_risk_threshold"] or 0.7),
-            "medium_risk_threshold": float(row["medium_risk_threshold"] or 0.35),
-            "last_scoring_date": str(row["scoring_date"]) if row["scoring_date"] else None,
+            "model_name": scoring_row["model_name"],
+            "model_version": scoring_row["model_version"],
+            "algorithm": scoring_row["algorithm"],
+            "roc_auc": (
+                float(metrics_row["roc_auc"])
+                if metrics_row and metrics_row["roc_auc"] is not None
+                else None
+            ),
+            "f1_score": (
+                float(metrics_row["f1_score"])
+                if metrics_row and metrics_row["f1_score"] is not None
+                else None
+            ),
+            "recall": (
+                float(metrics_row["recall"])
+                if metrics_row and metrics_row["recall"] is not None
+                else None
+            ),
+            "high_risk_threshold": float(scoring_row["high_risk_threshold"] or 0.7),
+            "medium_risk_threshold": float(scoring_row["medium_risk_threshold"] or 0.35),
+            "last_scoring_date": (
+                str(scoring_row["scoring_date"])
+                if scoring_row["scoring_date"]
+                else None
+            ),
+            "last_training_date": (
+                str(metrics_row["training_date"])
+                if metrics_row and metrics_row["training_date"]
+                else None
+            ),
         }

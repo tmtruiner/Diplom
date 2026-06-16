@@ -87,25 +87,6 @@
   text-align: left;
 }
 
-.kpiCard:disabled {
-  color: inherit;
-}
-
-.clickableCard {
-  cursor: pointer;
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
-}
-
-.clickableCard:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-  transform: translateY(-1px);
-}
-
-.clickableCard:focus-visible,
 .clickableListItem:focus-visible {
   outline: 3px solid #bfdbfe;
   outline-offset: 3px;
@@ -123,13 +104,6 @@
   font-weight: 800;
   letter-spacing: -0.03em;
   color: #020617;
-}
-
-.kpiHelper {
-  margin-top: 8px;
-  font-size: 12px;
-  color: #64748b;
-  line-height: 1.4;
 }
 
 .kpiIcon {

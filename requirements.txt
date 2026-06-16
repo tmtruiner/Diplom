@@ -1,5 +1,2 @@
-pandas
-mlflow
-boto3
-scikit-learn
-imbalanced-learn
+-r backend/requirements.txt
+-r ml_service/requirements.txt

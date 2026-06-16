@@ -30,6 +30,7 @@ export type DashboardSummary = {
   top_risk_factors: {
     factor: string;
     customers_count: number;
+    high_risk_share: number;
     impact: "Low" | "Medium" | "High";
   }[];
 
@@ -52,5 +53,6 @@ export type DashboardSummary = {
     high_risk_threshold: number;
     medium_risk_threshold: number;
     last_scoring_date: string | null;
+    last_training_date: string | null;
   };
 };
