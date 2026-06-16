@@ -1,14 +1,4 @@
 import { useEffect, useState } from "react";
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 
 import { fetchRecommendations } from "../services/recommendationsApi";
 import type { CustomerPageFilters } from "../types/customers";
@@ -33,6 +23,23 @@ function formatMoney(value: number) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function getRecommendationChartLabel(value: string | null | undefined) {
+  const map: Record<string, string> = {
+    "Service Recovery Call": "Восстановление сервиса",
+    "Tariff Optimization": "Оптимизация тарифа",
+    "Voice Mail Offer": "Голосовая почта",
+    "Voice Mail Plan Offer": "Голосовая почта",
+    "Retention Discount": "Скидка на удержание",
+    "International Plan Review": "Международный тариф",
+  };
+
+  if (!value) {
+    return "-";
+  }
+
+  return map[value] ?? translateRecommendation(value);
 }
 
 function getPriorityTone(priority: string | null) {
@@ -64,10 +71,8 @@ function Badge({
 
 function RecommendationProfilePanel({
   recommendation,
-  onOpenCustomers,
 }: {
   recommendation: RecommendationItem | null;
-  onOpenCustomers: (filters: CustomerPageFilters) => void;
 }) {
   if (!recommendation) {
     return (
@@ -140,20 +145,6 @@ function RecommendationProfilePanel({
             {translateRecommendationReason(recommendation.recommendation_reason)}
         </div>
       </section>
-
-      <div className={styles.panelActions}>
-        <button
-          type="button"
-          className={styles.secondaryActionButton}
-          onClick={() =>
-            onOpenCustomers({
-              recommendation: recommendation.recommendation_type,
-            })
-          }
-        >
-          Показать клиентов с рекомендацией
-        </button>
-      </div>
     </aside>
   );
 }
@@ -206,10 +197,15 @@ export function RecommendationsPage({
     ) ?? null;
 
   const chartData = recommendations.map((item) => ({
-    type: translateRecommendation(item.recommendation_type),
+    type: getRecommendationChartLabel(item.recommendation_type),
+    fullType: translateRecommendation(item.recommendation_type),
     originalType: item.recommendation_type,
     customers: item.customers_count,
   }));
+  const maxChartCustomers = Math.max(
+    1,
+    ...chartData.map((item) => item.customers)
+  );
 
   return (
     <div className={styles.page}>
@@ -238,37 +234,45 @@ export function RecommendationsPage({
           </div>
 
           <div className={styles.chart}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={chartData}
-                layout="vertical"
-                margin={{ left: 120, right: 20 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis
-                  dataKey="type"
-                  type="category"
-                  width={260}
-                  tick={{ fontSize: 12 }}
-                />
-                <Tooltip />
-                <Bar dataKey="customers" radius={[0, 8, 8, 0]}>
-                  {chartData.map((entry) => (
-                    <Cell
-                      key={entry.originalType}
-                      fill="#7c3aed"
-                      cursor="pointer"
-                      onClick={() =>
-                        onOpenCustomers({
-                          recommendation: entry.originalType,
-                        })
-                      }
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className={styles.barListChart}>
+              {chartData.length > 0 ? (
+                chartData.map((entry) => (
+                  <button
+                    type="button"
+                    key={entry.originalType}
+                    className={styles.barChartRow}
+                    onClick={() =>
+                      onOpenCustomers({
+                        recommendation: entry.originalType,
+                      })
+                    }
+                    title={entry.fullType}
+                  >
+                    <span className={styles.barChartLabel}>
+                      {entry.type}
+                    </span>
+                    <span className={styles.barChartTrack}>
+                      <span
+                        className={styles.barChartFill}
+                        style={{
+                          width: `${Math.max(
+                            2,
+                            (entry.customers / maxChartCustomers) * 100
+                          )}%`,
+                        }}
+                      />
+                    </span>
+                    <span className={styles.barChartValue}>
+                      {formatNumber(entry.customers)}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className={styles.emptyState}>
+                  Активные рекомендации не найдены.
+                </div>
+              )}
+            </div>
           </div>
         </section>
 
@@ -404,7 +408,6 @@ export function RecommendationsPage({
 
         <RecommendationProfilePanel
           recommendation={selectedRecommendation}
-          onOpenCustomers={onOpenCustomers}
         />
       </section>
     </div>

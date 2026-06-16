@@ -190,6 +190,10 @@ export function DashboardPage({
       originalType: item.recommendation_type,
       count: item.customers_count,
     }));
+  const maxRecommendationCount = Math.max(
+    1,
+    ...recommendationsSummary.map((item) => item.count)
+  );
 
   const retentionPriorities = recommendationsSummary.slice(0, 4);
 
@@ -329,46 +333,44 @@ export function DashboardPage({
           title="Сводка рекомендаций"
           subtitle="Действия по удержанию, сформированные на основе риска и правил"
         >
-          <div className={styles.chart}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={recommendationsSummary}
-                layout="vertical"
-                margin={{ top: 8, right: 24, left: 24, bottom: 8 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                <XAxis type="number" />
-                <YAxis
-                  dataKey="type"
-                  type="category"
-                  width={170}
-                  tick={{ fontSize: 12 }}
-                />
-                <Tooltip
-                  formatter={(value) => [
-                    formatNumber(Number(value)),
-                    "Клиенты",
-                  ]}
-                  labelFormatter={(_, payload) =>
-                    payload?.[0]?.payload?.fullType ?? ""
+          <div className={styles.barListChart}>
+            {recommendationsSummary.length > 0 ? (
+              recommendationsSummary.map((entry) => (
+                <button
+                  type="button"
+                  key={entry.originalType}
+                  className={styles.barChartRow}
+                  onClick={() =>
+                    onOpenCustomers({
+                      recommendation: entry.originalType,
+                    })
                   }
-                />
-                <Bar dataKey="count" radius={[0, 8, 8, 0]}>
-                  {recommendationsSummary.map((entry) => (
-                    <Cell
-                      key={entry.originalType}
-                      fill="#7c3aed"
-                      cursor="pointer"
-                      onClick={() =>
-                        onOpenCustomers({
-                          recommendation: entry.originalType,
-                        })
-                      }
+                  title={entry.fullType}
+                >
+                  <span className={styles.barChartLabel}>
+                    {entry.type}
+                  </span>
+                  <span className={styles.barChartTrack}>
+                    <span
+                      className={styles.barChartFill}
+                      style={{
+                        width: `${Math.max(
+                          2,
+                          (entry.count / maxRecommendationCount) * 100
+                        )}%`,
+                      }}
                     />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+                  </span>
+                  <span className={styles.barChartValue}>
+                    {formatNumber(entry.count)}
+                  </span>
+                </button>
+              ))
+            ) : (
+              <div className={styles.emptyState}>
+                Активных рекомендаций нет.
+              </div>
+            )}
           </div>
         </ChartCard>
 

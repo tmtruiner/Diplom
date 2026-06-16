@@ -51,7 +51,7 @@ export function translateRiskFactor(value: string | null | undefined) {
     "International plan": "Подключён международный тариф",
     "High day charge": "Высокие дневные расходы",
     "No voice mail plan": "Не подключена голосовая почта",
-    "Stable customer profile": "Стабильный профиль клиента",
+    "Stable customer profile": "Фактор риска не выявлен",
   };
 
   if (!value) {
@@ -153,7 +153,7 @@ export function translateRecommendationReason(value?: string | null) {
     normalizedValue.includes("low churn probability") ||
     normalizedValue.includes("stable account")
   ) {
-    return "У клиента низкая вероятность оттока и стабильный профиль; дополнительных действий не требуется.";
+    return "У клиента низкая вероятность оттока; явный фактор риска не выявлен.";
   }
 
   if (

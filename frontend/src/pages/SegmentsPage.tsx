@@ -13,7 +13,6 @@ import {
 } from "recharts";
 import {
   AlertTriangle,
-  ArrowRight,
 } from "lucide-react";
 
 import { fetchSegments } from "../services/segmentsApi";
@@ -163,11 +162,9 @@ function PriorityMapTooltip({
 function SegmentProfilePanel({
   segment,
   portfolioAverageRisk,
-  onOpenCustomers,
 }: {
   segment: SegmentItem | null;
   portfolioAverageRisk: number;
-  onOpenCustomers: (filters: CustomerPageFilters) => void;
 }) {
   if (!segment) {
     return (
@@ -251,17 +248,6 @@ function SegmentProfilePanel({
           {translateRecommendation(segment.main_recommendation)}
         </div>
       </section>
-
-      <div className={styles.panelActions}>
-        <button
-          type="button"
-          className={styles.secondaryActionButton}
-          onClick={() => onOpenCustomers({ segment: segment.segment_name })}
-        >
-          Показать клиентов
-          <ArrowRight size={16} />
-        </button>
-      </div>
     </aside>
   );
 }
@@ -521,7 +507,6 @@ export function SegmentsPage({ onOpenCustomers }: SegmentsPageProps) {
         <SegmentProfilePanel
           segment={selectedSegment}
           portfolioAverageRisk={portfolioAverageRisk}
-          onOpenCustomers={onOpenCustomers}
         />
       </section>
     </div>

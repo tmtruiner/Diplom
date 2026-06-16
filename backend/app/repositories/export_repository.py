@@ -1,6 +1,5 @@
 import csv
 import io
-import json
 from datetime import date, datetime
 
 from sqlalchemy import text
@@ -13,7 +12,8 @@ CUSTOMER_CSV_HEADERS = {
     "risk_group": "Группа риска",
     "main_risk_factor": "Основной фактор риска",
     "estimated_total_charge": "Оценочные расходы",
-    "scoring_date": "Дата скоринга",
+    "revenue_at_risk": "Выручка под риском",
+    "scoring_date": "Дата прогноза",
     "segment_name": "Сегмент",
     "recommendation_type": "Рекомендация",
     "recommendation_reason": "Причина рекомендации",
@@ -37,7 +37,7 @@ RISK_FACTOR_TRANSLATIONS = {
     "International plan": "Подключён международный тариф",
     "High day charge": "Высокие дневные расходы",
     "No voice mail plan": "Не подключена голосовая почта",
-    "Stable customer profile": "Стабильный профиль клиента",
+    "Stable customer profile": "Фактор риска не выявлен",
 }
 
 SEGMENT_TRANSLATIONS = {
@@ -80,30 +80,6 @@ class ExportRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def export_customers_csv(self) -> str:
-        query = text("""
-            SELECT
-                p.customer_id,
-                p.churn_probability,
-                p.risk_group,
-                p.main_risk_factor,
-                p.estimated_total_charge,
-                p.scoring_date,
-                s.segment_name,
-                r.recommendation_type,
-                r.recommendation_reason,
-                r.priority
-            FROM predictions p
-            LEFT JOIN customer_segments s
-                ON p.customer_id = s.customer_id
-            LEFT JOIN customer_recommendations r
-                ON p.customer_id = r.customer_id
-            ORDER BY p.churn_probability DESC
-        """)
-
-        rows = self.db.execute(query).mappings().all()
-        return self._customers_to_csv(rows)
-
     def export_filtered_customers_csv(
         self,
         search: str | None = None,
@@ -112,6 +88,7 @@ class ExportRepository:
         recommendation: str | None = None,
         main_risk_factor: str | None = None,
         min_probability: float | None = None,
+        fields: list[str] | None = None,
     ) -> str:
         query = """
             SELECT
@@ -120,6 +97,7 @@ class ExportRepository:
                 p.risk_group,
                 p.main_risk_factor,
                 p.estimated_total_charge,
+                p.churn_probability * p.estimated_total_charge AS revenue_at_risk,
                 p.scoring_date,
                 s.segment_name,
                 r.recommendation_type,
@@ -162,7 +140,7 @@ class ExportRepository:
         query += " ORDER BY p.churn_probability DESC"
 
         rows = self.db.execute(text(query), params).mappings().all()
-        return self._customers_to_csv(rows)
+        return self._customers_to_csv(rows, fields=fields)
 
     def export_high_risk_customers_csv(self) -> str:
         query = text("""
@@ -172,6 +150,7 @@ class ExportRepository:
                 p.risk_group,
                 p.main_risk_factor,
                 p.estimated_total_charge,
+                p.churn_probability * p.estimated_total_charge AS revenue_at_risk,
                 p.scoring_date,
                 s.segment_name,
                 r.recommendation_type,
@@ -287,7 +266,39 @@ class ExportRepository:
         """)
 
         rows = self.db.execute(query).mappings().all()
-        return self._to_csv(rows)
+        prepared_rows = []
+
+        for row in rows:
+            row_data = dict(row)
+            prepared_rows.append(
+                {
+                    "Сегмент": SEGMENT_TRANSLATIONS.get(
+                        row_data["segment_name"],
+                        row_data["segment_name"],
+                    ),
+                    "Клиенты": row_data["clients_count"],
+                    "Средняя вероятность оттока": self._format_decimal(
+                        row_data["average_churn_probability"]
+                    ),
+                    "Клиенты высокого риска": row_data["high_risk_customers"],
+                    "Доля высокого риска": self._format_percent(
+                        row_data["high_risk_share"]
+                    ),
+                    "Средние расходы": self._format_decimal(
+                        row_data["average_estimated_total_charge"]
+                    ),
+                    "Основное действие": RECOMMENDATION_TRANSLATIONS.get(
+                        row_data["main_recommendation"],
+                        row_data["main_recommendation"],
+                    ),
+                    "Основной фактор риска": RISK_FACTOR_TRANSLATIONS.get(
+                        row_data["main_risk_factor"],
+                        row_data["main_risk_factor"],
+                    ),
+                }
+            )
+
+        return self._to_csv(prepared_rows)
 
     def export_recommendations_csv(self) -> str:
         query = text("""
@@ -322,11 +333,40 @@ class ExportRepository:
         """)
 
         rows = self.db.execute(query).mappings().all()
-        return self._to_csv(rows)
+        prepared_rows = []
 
-    def export_dashboard_summary_json(self) -> str:
-        payload = self._get_dashboard_summary_payload()
-        return json.dumps(payload, default=str, ensure_ascii=False, indent=2)
+        for row in rows:
+            row_data = dict(row)
+            prepared_rows.append(
+                {
+                    "Рекомендация": RECOMMENDATION_TRANSLATIONS.get(
+                        row_data["recommendation_type"],
+                        row_data["recommendation_type"],
+                    ),
+                    "Клиенты": row_data["customers_count"],
+                    "Клиенты высокого риска": row_data["high_risk_customers"],
+                    "Средняя вероятность оттока": self._format_decimal(
+                        row_data["average_churn_probability"]
+                    ),
+                    "Выручка под риском": self._format_decimal(
+                        row_data["estimated_revenue_at_risk"]
+                    ),
+                    "Приоритет": PRIORITY_TRANSLATIONS.get(
+                        row_data["priority"],
+                        row_data["priority"] or "",
+                    ),
+                    "Причина рекомендации": RECOMMENDATION_REASON_TRANSLATIONS.get(
+                        row_data["recommendation_reason"],
+                        row_data["recommendation_reason"] or "",
+                    ),
+                    "Основной фактор риска": RISK_FACTOR_TRANSLATIONS.get(
+                        row_data["main_risk_factor"],
+                        row_data["main_risk_factor"] or "",
+                    ),
+                }
+            )
+
+        return self._to_csv(prepared_rows)
 
     def export_dashboard_summary_csv(self) -> str:
         payload = self._get_dashboard_summary_payload()
@@ -336,29 +376,34 @@ class ExportRepository:
         rows.extend(
             [
                 {
-                    "section": "KPI",
-                    "metric": "Всего клиентов",
-                    "value": kpis["total_customers"],
+                    "Раздел": "KPI",
+                    "Показатель": "Всего клиентов",
+                    "Значение": kpis["total_customers"],
                 },
                 {
-                    "section": "KPI",
-                    "metric": "Клиенты высокого риска",
-                    "value": kpis["high_risk_customers"],
+                    "Раздел": "KPI",
+                    "Показатель": "Клиенты высокого риска",
+                    "Значение": kpis["high_risk_customers"],
                 },
                 {
-                    "section": "KPI",
-                    "metric": "Средняя вероятность оттока",
-                    "value": round(float(kpis["average_churn_probability"] or 0), 4),
+                    "Раздел": "KPI",
+                    "Показатель": "Средняя вероятность оттока",
+                    "Значение": self._format_decimal(
+                        kpis["average_churn_probability"],
+                        digits=4,
+                    ),
                 },
                 {
-                    "section": "KPI",
-                    "metric": "Выручка под риском",
-                    "value": round(float(kpis["estimated_revenue_at_risk"] or 0), 2),
+                    "Раздел": "KPI",
+                    "Показатель": "Выручка под риском",
+                    "Значение": self._format_decimal(
+                        kpis["estimated_revenue_at_risk"]
+                    ),
                 },
                 {
-                    "section": "KPI",
-                    "metric": "Дата последнего прогноза",
-                    "value": kpis["last_scoring_date"],
+                    "Раздел": "KPI",
+                    "Показатель": "Дата последнего прогноза",
+                    "Значение": kpis["last_scoring_date"],
                 },
             ]
         )
@@ -366,24 +411,24 @@ class ExportRepository:
         for row in payload["risk_distribution"]:
             rows.append(
                 {
-                    "section": "Распределение риска",
-                    "metric": RISK_GROUP_TRANSLATIONS.get(
+                    "Раздел": "Распределение риска",
+                    "Показатель": RISK_GROUP_TRANSLATIONS.get(
                         row["risk_group"],
                         row["risk_group"],
                     ),
-                    "value": row["customers_count"],
+                    "Значение": row["customers_count"],
                 }
             )
 
         for row in payload["recommendations_summary"]:
             rows.append(
                 {
-                    "section": "Сводка рекомендаций",
-                    "metric": RECOMMENDATION_TRANSLATIONS.get(
+                    "Раздел": "Сводка рекомендаций",
+                    "Показатель": RECOMMENDATION_TRANSLATIONS.get(
                         row["recommendation_type"],
                         row["recommendation_type"],
                     ),
-                    "value": row["customers_count"],
+                    "Значение": row["customers_count"],
                 }
             )
 
@@ -454,9 +499,10 @@ class ExportRepository:
 
         return "\ufeff" + output.getvalue()
 
-    def _customers_to_csv(self, rows) -> str:
+    def _customers_to_csv(self, rows, fields: list[str] | None = None) -> str:
         output = io.StringIO()
-        fieldnames = list(CUSTOMER_CSV_HEADERS.values())
+        selected_fields = self._get_customer_export_fields(fields)
+        fieldnames = [CUSTOMER_CSV_HEADERS[key] for key in selected_fields]
 
         writer = csv.DictWriter(
             output,
@@ -472,17 +518,31 @@ class ExportRepository:
                 {
                     header: self._format_customer_csv_value(key, row_data.get(key))
                     for key, header in CUSTOMER_CSV_HEADERS.items()
+                    if key in selected_fields
                 }
             )
 
         return "\ufeff" + output.getvalue()
 
     @staticmethod
+    def _get_customer_export_fields(fields: list[str] | None) -> list[str]:
+        if not fields:
+            return list(CUSTOMER_CSV_HEADERS.keys())
+
+        selected = set(fields)
+        selected.add("customer_id")
+
+        return [
+            key for key in CUSTOMER_CSV_HEADERS
+            if key in selected
+        ]
+
+    @staticmethod
     def _format_customer_csv_value(key: str, value) -> str:
         if value is None:
             return ""
 
-        if key in {"churn_probability", "estimated_total_charge"}:
+        if key in {"churn_probability", "estimated_total_charge", "revenue_at_risk"}:
             return f"{float(value):.2f}".replace(".", ",")
 
         if key == "scoring_date":
@@ -507,3 +567,17 @@ class ExportRepository:
             return translations[key].get(str(value), str(value))
 
         return str(value)
+
+    @staticmethod
+    def _format_decimal(value, digits: int = 2) -> str:
+        if value is None:
+            return ""
+
+        return f"{float(value):.{digits}f}".replace(".", ",")
+
+    @staticmethod
+    def _format_percent(value) -> str:
+        if value is None:
+            return ""
+
+        return f"{round(float(value) * 100)}%"

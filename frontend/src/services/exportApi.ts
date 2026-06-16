@@ -20,6 +20,7 @@ type CustomerExportFilters = {
   recommendation?: string;
   mainRiskFactor?: string;
   minProbability?: number;
+  fields?: string[];
 };
 
 export function downloadExport(endpoint: ExportEndpoint) {
@@ -52,6 +53,10 @@ export function downloadFilteredCustomers(filters: CustomerExportFilters) {
   if (filters.minProbability && filters.minProbability > 0) {
     searchParams.set("min_probability", String(filters.minProbability));
   }
+
+  filters.fields?.forEach((field) => {
+    searchParams.append("fields", field);
+  });
 
   const queryString = searchParams.toString();
   const url = `${API_BASE_URL}/api/export/customers-filtered.csv${

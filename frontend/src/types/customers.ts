@@ -33,6 +33,8 @@ export type CustomerFilterOptions = {
 export type CustomersResponse = {
   items: CustomerListItem[];
   total: number;
+  limit?: number;
+  offset?: number;
 };
 
 export type CustomerDetail = {

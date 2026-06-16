@@ -13,6 +13,8 @@ type FetchCustomersParams = {
   recommendation?: string;
   mainRiskFactor?: string;
   minProbability?: number;
+  limit?: number;
+  offset?: number;
 };
 
 export async function fetchCustomers(
@@ -42,6 +44,14 @@ export async function fetchCustomers(
 
   if (params?.minProbability && params.minProbability > 0) {
     searchParams.set("min_probability", String(params.minProbability));
+  }
+
+  if (params?.limit) {
+    searchParams.set("limit", String(params.limit));
+  }
+
+  if (params?.offset) {
+    searchParams.set("offset", String(params.offset));
   }
 
   const queryString = searchParams.toString();

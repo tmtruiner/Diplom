@@ -8,6 +8,9 @@ import {
   UserRound,
   ChevronDown,
   Download,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from "lucide-react";
 
 import {
@@ -36,12 +39,34 @@ import {
 
 import styles from "./CustomersPage.module.css";
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100];
+const CUSTOMER_EXPORT_FIELDS = [
+  { key: "customer_id", label: "ID клиента", required: true },
+  { key: "churn_probability", label: "Вероятность оттока" },
+  { key: "risk_group", label: "Группа риска" },
+  { key: "main_risk_factor", label: "Основной фактор риска" },
+  { key: "estimated_total_charge", label: "Оценочные расходы" },
+  { key: "revenue_at_risk", label: "Выручка под риском" },
+  { key: "scoring_date", label: "Дата прогноза" },
+  { key: "segment_name", label: "Сегмент" },
+  { key: "recommendation_type", label: "Рекомендация" },
+  { key: "recommendation_reason", label: "Причина рекомендации" },
+  { key: "priority", label: "Приоритет" },
+];
+const DEFAULT_CUSTOMER_EXPORT_FIELD_KEYS = CUSTOMER_EXPORT_FIELDS.map(
+  (field) => field.key
+);
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("ru-RU").format(value);
 }
 
 function getRiskTone(riskGroup: string) {
@@ -327,11 +352,83 @@ export function CustomersPage({
 
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [isExportPreviewOpen, setIsExportPreviewOpen] = useState(false);
+  const [selectedExportFieldKeys, setSelectedExportFieldKeys] = useState(
+    DEFAULT_CUSTOMER_EXPORT_FIELD_KEYS
+  );
 
   const riskGroupOptions = filterOptions.risk_groups ?? [];
   const segmentOptions = filterOptions.segments ?? [];
   const recommendationOptions = filterOptions.recommendations ?? [];
   const mainRiskFactorOptions = filterOptions.main_risk_factors ?? [];
+  const totalPages = Math.max(1, Math.ceil(totalCustomers / pageSize));
+  const pageStart = totalCustomers === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const pageEnd = Math.min(currentPage * pageSize, totalCustomers);
+  const listRangeText =
+    totalCustomers === 0
+      ? isLoadingList
+        ? "Загрузка клиентов..."
+        : "Клиенты не найдены"
+      : `Показано клиентов: ${pageStart}-${pageEnd} из ${totalCustomers}`;
+  const currentExportFilters = {
+    search,
+    riskGroup,
+    segment,
+    recommendation,
+    mainRiskFactor,
+    minProbability,
+  };
+  const exportFilters = [
+    search.trim() ? `ID клиента: ${search.trim()}` : null,
+    riskGroup !== "All" ? translateRiskGroup(riskGroup) : null,
+    segment !== "All" ? translateSegment(segment) : null,
+    recommendation !== "All"
+      ? translateRecommendation(recommendation)
+      : null,
+    mainRiskFactor !== "All" ? translateRiskFactor(mainRiskFactor) : null,
+    minProbability > 0
+      ? `Вероятность от ${minProbability.toFixed(2)}`
+      : null,
+  ].filter((value): value is string => Boolean(value));
+  const canDownloadExport =
+    exportFilters.length > 0 &&
+    totalCustomers > 0 &&
+    selectedExportFieldKeys.length > 0 &&
+    !isLoadingList;
+
+  function toggleExportField(fieldKey: string, isRequired?: boolean) {
+    if (isRequired) {
+      return;
+    }
+
+    setSelectedExportFieldKeys((currentKeys) =>
+      currentKeys.includes(fieldKey)
+        ? currentKeys.filter((key) => key !== fieldKey)
+        : [...currentKeys, fieldKey]
+    );
+  }
+
+  function clearOptionalExportFields() {
+    setSelectedExportFieldKeys(
+      CUSTOMER_EXPORT_FIELDS
+        .filter((field) => field.required)
+        .map((field) => field.key)
+    );
+  }
+
+  function handleConfirmExport() {
+    if (!canDownloadExport) {
+      return;
+    }
+
+    setIsExportPreviewOpen(false);
+    downloadFilteredCustomers({
+      ...currentExportFilters,
+      fields: selectedExportFieldKeys,
+    });
+  }
 
   useEffect(() => {
     fetchCustomerFilterOptions()
@@ -356,6 +453,17 @@ export function CustomersPage({
   }, []);
 
   useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    search,
+    riskGroup,
+    segment,
+    recommendation,
+    mainRiskFactor,
+    minProbability,
+  ]);
+
+  useEffect(() => {
     setIsLoadingList(true);
     setError("");
 
@@ -366,6 +474,8 @@ export function CustomersPage({
       recommendation,
       mainRiskFactor,
       minProbability,
+      limit: pageSize,
+      offset: (currentPage - 1) * pageSize,
     })
       .then((response) => {
         const items = response.items ?? [];
@@ -397,6 +507,8 @@ export function CustomersPage({
     recommendation,
     mainRiskFactor,
     minProbability,
+    currentPage,
+    pageSize,
   ]);
 
   useEffect(() => {
@@ -427,16 +539,8 @@ export function CustomersPage({
         <button
           type="button"
           className={styles.primaryButton}
-          onClick={() =>
-            downloadFilteredCustomers({
-              search,
-              riskGroup,
-              segment,
-              recommendation,
-              mainRiskFactor,
-              minProbability,
-            })
-          }
+          disabled={isLoadingList}
+          onClick={() => setIsExportPreviewOpen(true)}
         >
           <Download size={17} />
           Выгрузить текущую выборку
@@ -549,16 +653,22 @@ export function CustomersPage({
           <div className={styles.tableHeader}>
             <div>
               <h2>Список клиентов</h2>
-              <p>
-                {isLoadingList
-                  ? "Загрузка клиентов..."
-                  : `Показано клиентов: ${customers.length} из ${totalCustomers}`}
+              <p className={styles.tableMeta}>
+                <span>{listRangeText}</span>
               </p>
             </div>
           </div>
 
           <div className={styles.tableWrapper}>
             <table className={styles.table}>
+              <colgroup>
+                <col className={styles.customerIdColumn} />
+                <col className={styles.probabilityColumn} />
+                <col className={styles.riskColumn} />
+                <col className={styles.segmentColumn} />
+                <col className={styles.chargeColumn} />
+                <col className={styles.recommendationColumn} />
+              </colgroup>
               <thead>
                 <tr>
                   <th>ID клиента</th>
@@ -619,10 +729,181 @@ export function CustomersPage({
               </div>
             )}
           </div>
+
+          <div className={styles.paginationBar}>
+            <div className={styles.paginationInfo}>
+              Страница {currentPage} из {totalPages}
+            </div>
+
+            <div className={styles.paginationControls}>
+              <label className={styles.pageSizeControl}>
+                На странице
+                <div className={styles.pageSizeSelect}>
+                  <CustomSelect
+                    value={String(pageSize)}
+                    onChange={(value) => {
+                      setPageSize(Number(value));
+                      setCurrentPage(1);
+                    }}
+                    options={PAGE_SIZE_OPTIONS.map((option) => ({
+                      value: String(option),
+                      label: String(option),
+                    }))}
+                  />
+                </div>
+              </label>
+
+              <button
+                type="button"
+                className={styles.paginationButton}
+                disabled={currentPage <= 1 || isLoadingList}
+                onClick={() =>
+                  setCurrentPage((page) => Math.max(1, page - 1))
+                }
+              >
+                <ChevronLeft size={16} />
+                Назад
+              </button>
+
+              <button
+                type="button"
+                className={styles.paginationButton}
+                disabled={currentPage >= totalPages || isLoadingList}
+                onClick={() =>
+                  setCurrentPage((page) => Math.min(totalPages, page + 1))
+                }
+              >
+                Вперед
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
         </section>
 
         <CustomerDetailsPanel customer={selectedCustomer} />
       </section>
+
+      {isExportPreviewOpen && (
+        <div
+          className={styles.modalOverlay}
+          onClick={() => setIsExportPreviewOpen(false)}
+        >
+          <section
+            className={styles.exportPreviewModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-preview-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className={styles.modalHeader}>
+              <div>
+                <div className={styles.modalLabel}>CSV</div>
+                <h2 id="export-preview-title">Выгрузка выборки</h2>
+              </div>
+
+              <button
+                type="button"
+                className={styles.modalCloseButton}
+                onClick={() => setIsExportPreviewOpen(false)}
+                aria-label="Закрыть предпросмотр"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className={styles.previewSummary}>
+              <div>
+                <span>Клиентов</span>
+                <strong>{formatNumber(totalCustomers)}</strong>
+              </div>
+
+              <div>
+                <span>Формат</span>
+                <strong>CSV</strong>
+              </div>
+            </div>
+
+            <div className={styles.previewSection}>
+              <div className={styles.previewTitle}>Фильтры</div>
+              <div className={styles.previewChips}>
+                {exportFilters.length > 0 ? (
+                  exportFilters.map((filter) => (
+                    <span key={filter}>{filter}</span>
+                  ))
+                ) : (
+                  <span className={styles.previewMutedChip}>
+                    Фильтры не применены
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className={styles.previewSection}>
+              <div className={styles.previewTitleRow}>
+                <div className={styles.previewTitle}>Поля файла</div>
+                <button
+                  type="button"
+                  className={styles.clearFieldsButton}
+                  onClick={clearOptionalExportFields}
+                >
+                  Убрать все
+                </button>
+              </div>
+
+              <div className={styles.previewFields}>
+                {CUSTOMER_EXPORT_FIELDS.map((field) => (
+                  <button
+                    key={field.key}
+                    type="button"
+                    className={`${styles.previewFieldButton} ${
+                      selectedExportFieldKeys.includes(field.key)
+                        ? styles.previewFieldButtonActive
+                        : ""
+                    } ${
+                      field.required ? styles.previewFieldButtonRequired : ""
+                    }`}
+                    disabled={field.required}
+                    aria-pressed={selectedExportFieldKeys.includes(field.key)}
+                    onClick={() =>
+                      toggleExportField(field.key, field.required)
+                    }
+                  >
+                    {field.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!canDownloadExport && (
+              <div className={styles.exportWarning}>
+                {totalCustomers === 0
+                  ? "В выборке нет клиентов."
+                  : "Примените фильтр, чтобы не выгружать всю базу."}
+              </div>
+            )}
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                onClick={() => setIsExportPreviewOpen(false)}
+              >
+                Отмена
+              </button>
+
+              <button
+                type="button"
+                className={styles.primaryButton}
+                disabled={!canDownloadExport}
+                onClick={handleConfirmExport}
+              >
+                <Download size={16} />
+                Скачать CSV
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
