@@ -1,7 +1,12 @@
+# Extra Python packages required by the churn DAGs inside the Airflow image.
+# Apache Airflow itself comes from docker/Dockerfile.airflow and is installed
+# with the official constraints file for apache/airflow:2.9.3.
+
 pandas
 numpy
 scikit-learn
 mlflow
 boto3
 joblib
+sqlalchemy
 psycopg2-binary

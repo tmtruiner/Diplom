@@ -1,2 +1,12 @@
+# Root Python dependencies for local project setup.
+# Installs the FastAPI backend and ML/scoring service dependencies.
+#
+# Frontend dependencies are managed separately in frontend/package.json:
+#   cd frontend
+#   npm install
+#
+# Airflow is installed from the Docker image and uses:
+#   ml_service/requirements-airflow.txt
+
 -r backend/requirements.txt
 -r ml_service/requirements.txt
