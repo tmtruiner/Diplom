@@ -213,7 +213,7 @@ export function RecommendationsPage({
         <div>
           <h1 className={styles.pageTitle}>Рекомендации</h1>
           <p className={styles.pageSubtitle}>
-            Очереди действий по удержанию клиентов и приоритизация работы.
+            Рекомендации и приоритизация работы.
           </p>
         </div>
       </header>
@@ -228,9 +228,6 @@ export function RecommendationsPage({
         <section className={styles.card}>
           <div className={styles.cardHeader}>
             <h2>Объём рекомендаций</h2>
-            <p>
-              Сколько клиентов назначено на каждое действие по удержанию.
-            </p>
           </div>
 
           <div className={styles.chart}>
@@ -279,7 +276,6 @@ export function RecommendationsPage({
         <section className={styles.card}>
           <div className={styles.cardHeader}>
             <h2>Приоритет действий</h2>
-            <p>Рекомендации, отсортированные по бизнес-значимости.</p>
           </div>
 
           <div className={styles.priorityList}>

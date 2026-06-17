@@ -262,7 +262,7 @@ function CustomerDetailsPanel({
       <section className={styles.healthSection}>
         <h3 className={styles.healthSectionTitle}>
           <AlertTriangle size={15} />
-          Почему требуется внимание
+          Требуется внимание
         </h3>
 
         <div className={styles.riskReasonBox}>
@@ -271,11 +271,6 @@ function CustomerDetailsPanel({
               ? translateRiskFactor(riskFactor)
               : "Явный фактор риска не выявлен"}
           </div>
-          <p className={styles.riskReasonText}>
-            {hasActionableRiskFactor
-              ? "Этот фактор сильнее всего связан с текущей вероятностью ухода клиента."
-              : "Повышенное внимание требуется из-за общей вероятности ухода клиента."}
-          </p>
         </div>
       </section>
 
@@ -532,7 +527,7 @@ export function CustomersPage({
         <div>
           <h1 className={styles.pageTitle}>Клиенты</h1>
           <p className={styles.pageSubtitle}>
-            Анализ скоринговых клиентов, риска оттока, сегментов и рекомендаций.
+            Анализ клиентов, риска оттока, сегментов и рекомендаций.
           </p>
         </div>
 

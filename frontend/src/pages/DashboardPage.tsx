@@ -203,7 +203,7 @@ export function DashboardPage({
         <div>
           <h1 className={styles.pageTitle}>Дашборд</h1>
           <p className={styles.pageSubtitle}>
-            Обзор оттока клиентов, факторов риска и приоритетов удержания
+            Краткая сводка
           </p>
         </div>
       </header>
@@ -241,7 +241,6 @@ export function DashboardPage({
       <section className={styles.topGrid}>
         <ChartCard
           title="Распределение по группам риска"
-          subtitle="Клиенты с низким, средним и высоким риском оттока"
         >
           <div className={styles.chart}>
             <ResponsiveContainer width="100%" height="100%">
@@ -283,7 +282,7 @@ export function DashboardPage({
             <div>
               <h2 className={styles.cardTitle}>Что сделать сегодня</h2>
               <p className={styles.cardSubtitle}>
-                Основные действия, с которых стоит начать работу по удержанию
+                Основные действия, с которых стоит начать работу
               </p>
             </div>
 
@@ -331,7 +330,6 @@ export function DashboardPage({
       <section className={styles.twoColumnGrid}>
         <ChartCard
           title="Сводка рекомендаций"
-          subtitle="Действия по удержанию, сформированные на основе риска и правил"
         >
           <div className={styles.barListChart}>
             {recommendationsSummary.length > 0 ? (

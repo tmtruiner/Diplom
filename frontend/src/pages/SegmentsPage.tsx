@@ -11,10 +11,6 @@ import {
   YAxis,
   ZAxis,
 } from "recharts";
-import {
-  AlertTriangle,
-} from "lucide-react";
-
 import { fetchSegments } from "../services/segmentsApi";
 import type { CustomerPageFilters } from "../types/customers";
 import type { SegmentItem } from "../types/segments";
@@ -233,21 +229,6 @@ function SegmentProfilePanel({
           </div>
         </div>
       </section>
-
-      <section className={styles.detailsSection}>
-        <h3 className={styles.detailsSectionTitle}>Основная проблема</h3>
-        <div className={styles.riskFactorBox}>
-          <AlertTriangle size={17} />
-          <span>{translateRiskFactor(segment.main_risk_factor)}</span>
-        </div>
-      </section>
-
-      <section className={styles.detailsSection}>
-        <h3 className={styles.detailsSectionTitle}>Что рекомендуется сделать</h3>
-        <div className={styles.recommendationBox}>
-          {translateRecommendation(segment.main_recommendation)}
-        </div>
-      </section>
     </aside>
   );
 }
@@ -323,7 +304,7 @@ export function SegmentsPage({ onOpenCustomers }: SegmentsPageProps) {
         <div>
           <h1 className={styles.pageTitle}>Сегменты клиентов</h1>
           <p className={styles.pageSubtitle}>
-            Сравнение масштаба, риска и рекомендуемых действий для разных групп
+            Сравнение масштаба и риска для групп
             клиентов.
           </p>
         </div>

@@ -87,6 +87,7 @@
 
 .exportMeta {
   min-width: 0;
+  padding-top: 5px;
 }
 
 .exportTitle {
@@ -94,13 +95,6 @@
   font-size: 17px;
   font-weight: 800;
   color: #020617;
-}
-
-.exportDescription {
-  margin: 6px 0 0;
-  color: #64748b;
-  font-size: 14px;
-  line-height: 1.6;
 }
 
 .exportDetails {

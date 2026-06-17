@@ -16,7 +16,6 @@ import styles from "./ExportPage.module.css";
 type ExportItem = {
   group: "Клиенты" | "Аналитика" | "Отчеты";
   title: string;
-  description: string;
   purpose: string;
   fields: string[];
   fileName: string;
@@ -30,8 +29,6 @@ const exportItems: ExportItem[] = [
   {
     group: "Клиенты",
     title: "Клиенты высокого риска",
-    description:
-      "Выгрузка только клиентов из группы высокого риска для приоритизации действий по удержанию.",
     purpose: "Список клиентов, с которыми нужно работать в первую очередь.",
     fields: ["ID клиента", "Вероятность оттока", "Фактор риска", "Выручка под риском", "Приоритет"],
     fileName: "high_risk_customers.csv",
@@ -43,8 +40,6 @@ const exportItems: ExportItem[] = [
   {
     group: "Аналитика",
     title: "Сводка по сегментам",
-    description:
-      "Выгрузка аналитики по сегментам: количество клиентов, средний риск, доля высокого риска и основное действие.",
     purpose: "Сравнение сегментов и подготовка управленческой сводки.",
     fields: ["Сегмент", "Клиенты", "Доля высокого риска", "Основное действие", "Основной фактор риска"],
     fileName: "segments_summary.csv",
@@ -56,8 +51,6 @@ const exportItems: ExportItem[] = [
   {
     group: "Аналитика",
     title: "План рекомендаций",
-    description:
-      "Выгрузка агрегированных действий по удержанию с количеством клиентов, метриками риска и выручкой под риском.",
     purpose: "Планирование действий по удержанию и оценка масштаба работ.",
     fields: ["Рекомендация", "Клиенты", "Клиенты высокого риска", "Выручка под риском", "Приоритет"],
     fileName: "recommendations_plan.csv",
@@ -69,8 +62,6 @@ const exportItems: ExportItem[] = [
   {
     group: "Отчеты",
     title: "Сводка дашборда",
-    description:
-      "Выгрузка текущих KPI, распределения риска и сводки рекомендаций в табличном виде.",
     purpose: "Передача краткой сводки в отчет или электронную таблицу.",
     fields: ["Раздел", "Показатель", "Значение"],
     fileName: "dashboard_summary.csv",
@@ -97,18 +88,6 @@ function translateStatus(status: ExportItem["status"]) {
   if (status === "Ready") return "Готово";
   if (status === "Soon") return "Скоро";
   return status;
-}
-
-function formatFileCount(count: number) {
-  if (count % 10 === 1 && count % 100 !== 11) {
-    return `${count} файл`;
-  }
-
-  if ([2, 3, 4].includes(count % 10) && ![12, 13, 14].includes(count % 100)) {
-    return `${count} файла`;
-  }
-
-  return `${count} файлов`;
 }
 
 function Badge({
@@ -146,7 +125,6 @@ function ExportCard({ item }: { item: ExportItem }) {
 
         <div className={styles.exportMeta}>
           <h2 className={styles.exportTitle}>{item.title}</h2>
-          <p className={styles.exportDescription}>{item.description}</p>
         </div>
       </div>
 
@@ -200,16 +178,8 @@ export function ExportPage() {
         <div>
           <h1 className={styles.pageTitle}>Выгрузки</h1>
           <p className={styles.pageSubtitle}>
-            Скачивание аналитических наборов данных, списков клиентов и отчётов по удержанию.
+            Выгрузка аналитических данных
           </p>
-
-          <div className={styles.headerGroups}>
-            {Object.entries(groupedExportItems).map(([group, items]) => (
-              <span key={group}>
-                {group}: {formatFileCount(items.length)}
-              </span>
-            ))}
-          </div>
         </div>
       </header>
 
